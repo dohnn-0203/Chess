@@ -278,6 +278,37 @@ Transform:
   - {fileID: 117765447}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1155112958
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1155112959}
+  m_Layer: 0
+  m_Name: Black
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1155112959
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1155112958}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1181537607}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1181537606
 GameObject:
   m_ObjectHideFlags: 0
@@ -306,7 +337,9 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1781211412}
+  - {fileID: 1155112959}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1330084042
@@ -445,6 +478,37 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1781211411
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1781211412}
+  m_Layer: 0
+  m_Name: White
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1781211412
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1781211411}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1181537607}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1831334759
 GameObject:
@@ -585,10 +649,19 @@ MonoBehaviour:
   size: 8
   tileSize: 1
   tileHeight: 0.2
+  pieceY: 0
   tilePrefab: {fileID: 3615342486155492177, guid: 5464a92b203dc59448b3b7e3f98a5eed, type: 3}
+  piecePrefab: {fileID: 1563205284839848349, guid: aa2453e21fe64a142ab744519fca0924, type: 3}
   boardRoot: {fileID: 117765447}
-  whiteColor: {r: 1, g: 1, b: 1, a: 1}
-  blackColor: {r: 0.16, g: 0.16, b: 0.16, a: 1}
+  piecesRoot: {fileID: 1181537607}
+  whiteRoot: {fileID: 1781211412}
+  blackRoot: {fileID: 1155112959}
+  whiteTileColor: {r: 1, g: 1, b: 1, a: 1}
+  blackTileColor: {r: 0.16, g: 0.16, b: 0.16, a: 1}
+  selectTileColor: {r: 0.8, g: 0.8, b: 0.2, a: 1}
+  moveTileColor: {r: 0.4, g: 0.8, b: 0.4, a: 1}
+  whitePieceColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
+  blackPieceColor: {r: 0.25, g: 0.25, b: 0.25, a: 1}
   colorProp: _Color
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

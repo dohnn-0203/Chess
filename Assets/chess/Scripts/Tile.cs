@@ -4,17 +4,22 @@ public class Tile : MonoBehaviour
 {
     private int x;
     private int z;
+    private BoardManager board;
 
-    // 좌표 저장
-    public void Init(int x, int z)
+    // 좌표와 보드 저장
+    public void Init(int x, int z, BoardManager board)
     {
         this.x = x;
         this.z = z;
+        this.board = board;
     }
 
-    // 클릭 처리
+    public int X => x;
+    public int Z => z;
+
+    // 클릭 전달
     private void OnMouseDown()
     {
-        Debug.Log($"타일 클릭: ({x}, {z})");
+        board.SelectTile(this);
     }
 }
