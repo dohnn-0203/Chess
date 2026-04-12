@@ -38,12 +38,17 @@ public class BoardManager : MonoBehaviour
     private Piece selectedPiece;
     private List<Vector2Int> moveTiles = new List<Vector2Int>();
 
+    // 현재 턴
+    private Team turn = Team.White;
+
     private void Start()
     {
         block = new MaterialPropertyBlock();
 
         MakeBoard();
         MakePawns();
+
+        Debug.Log($"현재 턴: {turn}");
     }
 
     // 보드 생성
@@ -106,9 +111,11 @@ public class BoardManager : MonoBehaviour
     {
         Piece clickedPiece = pieces[tile.X, tile.Z];
 
+        // 선택된 말이 없을 때
         if (selectedPiece == null)
         {
-            if (clickedPiece != null)
+            // 자기 턴 말만 선택 가능
+            if (clickedPiece != null && clickedPiece.Team == turn)
             {
                 SelectPiece(clickedPiece, tile);
             }
@@ -116,6 +123,7 @@ public class BoardManager : MonoBehaviour
             return;
         }
 
+        // 같은 말 다시 클릭하면 선택 해제
         if (clickedPiece == selectedPiece)
         {
             ClearSelection();
@@ -124,14 +132,17 @@ public class BoardManager : MonoBehaviour
 
         Vector2Int pos = new Vector2Int(tile.X, tile.Z);
 
+        // 이동 가능 칸이면 이동
         if (CanMove(pos))
         {
             MovePiece(selectedPiece, tile.X, tile.Z);
+            ChangeTurn();
             ClearSelection();
             return;
         }
 
-        if (clickedPiece != null)
+        // 자기 턴 다른 말로 선택 변경
+        if (clickedPiece != null && clickedPiece.Team == turn)
         {
             ClearSelection();
             SelectPiece(clickedPiece, tile);
@@ -196,6 +207,13 @@ public class BoardManager : MonoBehaviour
         Debug.Log($"이동 완료: ({newX}, {newZ})");
     }
 
+    // 턴 변경
+    private void ChangeTurn()
+    {
+        turn = turn == Team.White ? Team.Black : Team.White;
+        Debug.Log($"현재 턴: {turn}");
+    }
+
     // 선택 해제
     private void ClearSelection()
     {
@@ -217,7 +235,7 @@ public class BoardManager : MonoBehaviour
     // 타일 기본 색
     private void SetTileColor(GameObject tileObj, int x, int z)
     {
-        bool isWhite = (x + z) % 2 != 0; // (0, 0) 왼쪽 아래 첫 칸이 흰색
+        bool isWhite = (x + z) % 2 != 0;
         Color color = isWhite ? whiteTileColor : blackTileColor;
         SetColor(tileObj, color);
     }
