@@ -14,6 +14,7 @@ public class BoardManager : MonoBehaviour
     [SerializeField] private GameObject pawnPrefab;
     [SerializeField] private GameObject rookPrefab;
     [SerializeField] private GameObject knightPrefab;
+    [SerializeField] private GameObject bishopPrefab;
 
     [Header("부모")]
     [SerializeField] private Transform boardRoot;
@@ -60,6 +61,7 @@ public class BoardManager : MonoBehaviour
         CreatePawns();
         CreateRooks();
         CreateKnights();
+        CreateBishops();
     }
 
     // 보드 생성
@@ -116,6 +118,16 @@ public class BoardManager : MonoBehaviour
         SpawnKnight(Team.Black, 6, 7);
     }
 
+    // 비숍 생성
+    private void CreateBishops()
+    {
+        SpawnBishop(Team.White, 2, 0);
+        SpawnBishop(Team.White, 5, 0);
+
+        SpawnBishop(Team.Black, 2, 7);
+        SpawnBishop(Team.Black, 5, 7);
+    }
+
     // 폰 하나 생성
     private void SpawnPawn(Team team, int x, int z)
     {
@@ -127,16 +139,16 @@ public class BoardManager : MonoBehaviour
         GameObject obj = Instantiate(pawnPrefab, pos, Quaternion.identity, root);
         obj.name = $"{team}_Pawn_{x}_{z}";
 
-        Pawn pawn = obj.GetComponent<Pawn>();
-        if (pawn == null)
+        Pawn piece = obj.GetComponent<Pawn>();
+        if (piece == null)
         {
-            pawn = obj.AddComponent<Pawn>();
+            piece = obj.AddComponent<Pawn>();
         }
 
-        pawn.Init(team, PieceType.Pawn, x, z);
+        piece.Init(team, PieceType.Pawn, x, z);
         SetPieceColor(obj, team);
 
-        board[x, z] = pawn;
+        board[x, z] = piece;
     }
 
     // 룩 하나 생성
@@ -150,16 +162,16 @@ public class BoardManager : MonoBehaviour
         GameObject obj = Instantiate(rookPrefab, pos, Quaternion.identity, root);
         obj.name = $"{team}_Rook_{x}_{z}";
 
-        Rook rook = obj.GetComponent<Rook>();
-        if (rook == null)
+        Rook piece = obj.GetComponent<Rook>();
+        if (piece == null)
         {
-            rook = obj.AddComponent<Rook>();
+            piece = obj.AddComponent<Rook>();
         }
 
-        rook.Init(team, PieceType.Rook, x, z);
+        piece.Init(team, PieceType.Rook, x, z);
         SetPieceColor(obj, team);
 
-        board[x, z] = rook;
+        board[x, z] = piece;
     }
 
     // 나이트 하나 생성
@@ -173,16 +185,39 @@ public class BoardManager : MonoBehaviour
         GameObject obj = Instantiate(knightPrefab, pos, Quaternion.identity, root);
         obj.name = $"{team}_Knight_{x}_{z}";
 
-        Knight knight = obj.GetComponent<Knight>();
-        if (knight == null)
+        Knight piece = obj.GetComponent<Knight>();
+        if (piece == null)
         {
-            knight = obj.AddComponent<Knight>();
+            piece = obj.AddComponent<Knight>();
         }
 
-        knight.Init(team, PieceType.Knight, x, z);
+        piece.Init(team, PieceType.Knight, x, z);
         SetPieceColor(obj, team);
 
-        board[x, z] = knight;
+        board[x, z] = piece;
+    }
+
+    // 비숍 하나 생성
+    private void SpawnBishop(Team team, int x, int z)
+    {
+        if (bishopPrefab == null) return;
+
+        Vector3 pos = GetPiecePos(x, z);
+        Transform root = GetTeamRoot(team);
+
+        GameObject obj = Instantiate(bishopPrefab, pos, Quaternion.identity, root);
+        obj.name = $"{team}_Bishop_{x}_{z}";
+
+        Bishop piece = obj.GetComponent<Bishop>();
+        if (piece == null)
+        {
+            piece = obj.AddComponent<Bishop>();
+        }
+
+        piece.Init(team, PieceType.Bishop, x, z);
+        SetPieceColor(obj, team);
+
+        board[x, z] = piece;
     }
 
     // 팀별 부모
@@ -274,6 +309,11 @@ public class BoardManager : MonoBehaviour
         if (piece is Knight knight)
         {
             return knight.GetMoves(board, size);
+        }
+
+        if (piece is Bishop bishop)
+        {
+            return bishop.GetMoves(board, size);
         }
 
         return new List<Vector2Int>();

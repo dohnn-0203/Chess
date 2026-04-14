@@ -10,7 +10,8 @@ public enum PieceType
 {
     Pawn,
     Rook,
-    Knight
+    Knight,
+    Bishop
 }
 
 public class Piece : MonoBehaviour
