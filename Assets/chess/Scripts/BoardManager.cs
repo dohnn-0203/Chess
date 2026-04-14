@@ -9,9 +9,11 @@ public class BoardManager : MonoBehaviour
     [SerializeField] private float tileHeight = 0.2f;
     [SerializeField] private float pieceY = 0.6f;
 
-    [Header("참조")]
+    [Header("프리팹")]
     [SerializeField] private GameObject tilePrefab;
-    [SerializeField] private GameObject piecePrefab;
+    [SerializeField] private GameObject pawnPrefab;
+
+    [Header("부모 오브젝트")]
     [SerializeField] private Transform boardRoot;
     [SerializeField] private Transform piecesRoot;
     [SerializeField] private Transform whiteRoot;
@@ -28,34 +30,33 @@ public class BoardManager : MonoBehaviour
     [SerializeField] private Color blackPieceColor = new Color(0.25f, 0.25f, 0.25f);
 
     [Header("셰이더 색 이름")]
-    [SerializeField] private string colorProp = "_BaseColor";
+    [SerializeField] private string colorKey = "_Color";
 
     private GameObject[,] tiles;
-    private Piece[,] pieces;
-    private MaterialPropertyBlock block;
+    private Piece[,] board;
+    private MaterialPropertyBlock mpb;
 
     private Tile selectedTile;
     private Piece selectedPiece;
-    private List<Vector2Int> moveTiles = new List<Vector2Int>();
+    private List<Vector2Int> moveList = new List<Vector2Int>();
 
-    // 현재 턴
     private Team turn = Team.White;
 
     private void Start()
     {
-        block = new MaterialPropertyBlock();
+        mpb = new MaterialPropertyBlock();
 
-        MakeBoard();
-        MakePawns();
+        CreateBoard();
+        CreatePawns();
 
         Debug.Log($"현재 턴: {turn}");
     }
 
     // 보드 생성
-    private void MakeBoard()
+    private void CreateBoard()
     {
         tiles = new GameObject[size, size];
-        pieces = new Piece[size, size];
+        board = new Piece[size, size];
 
         for (int x = 0; x < size; x++)
         {
@@ -75,8 +76,8 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    // 폰 배치
-    private void MakePawns()
+    // 폰 생성
+    private void CreatePawns()
     {
         for (int x = 0; x < size; x++)
         {
@@ -85,13 +86,13 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    // 폰 생성
+    // 폰 하나 생성
     private void SpawnPawn(Team team, int x, int z)
     {
         Vector3 pos = GetPiecePos(x, z);
         Transform parent = team == Team.White ? whiteRoot : blackRoot;
 
-        GameObject obj = Instantiate(piecePrefab, pos, Quaternion.identity, parent);
+        GameObject obj = Instantiate(pawnPrefab, pos, Quaternion.identity, parent);
         obj.name = $"{team}_Pawn_{x}_{z}";
 
         Pawn pawn = obj.GetComponent<Pawn>();
@@ -103,18 +104,16 @@ public class BoardManager : MonoBehaviour
         pawn.Init(team, PieceType.Pawn, x, z);
         SetPieceColor(obj, team);
 
-        pieces[x, z] = pawn;
+        board[x, z] = pawn;
     }
 
     // 타일 클릭
     public void SelectTile(Tile tile)
     {
-        Piece clickedPiece = pieces[tile.X, tile.Z];
+        Piece clickedPiece = board[tile.X, tile.Z];
 
-        // 선택된 말이 없을 때
         if (selectedPiece == null)
         {
-            // 자기 턴 말만 선택 가능
             if (clickedPiece != null && clickedPiece.Team == turn)
             {
                 SelectPiece(clickedPiece, tile);
@@ -123,33 +122,30 @@ public class BoardManager : MonoBehaviour
             return;
         }
 
-        // 같은 말 다시 클릭하면 선택 해제
         if (clickedPiece == selectedPiece)
         {
-            ClearSelection();
+            ClearSelect();
             return;
         }
 
-        Vector2Int pos = new Vector2Int(tile.X, tile.Z);
+        Vector2Int target = new Vector2Int(tile.X, tile.Z);
 
-        // 이동 가능 칸이면 이동
-        if (CanMove(pos))
+        if (CanMove(target))
         {
             MovePiece(selectedPiece, tile.X, tile.Z);
             ChangeTurn();
-            ClearSelection();
+            ClearSelect();
             return;
         }
 
-        // 자기 턴 다른 말로 선택 변경
         if (clickedPiece != null && clickedPiece.Team == turn)
         {
-            ClearSelection();
+            ClearSelect();
             SelectPiece(clickedPiece, tile);
             return;
         }
 
-        ClearSelection();
+        ClearSelect();
     }
 
     // 말 선택
@@ -158,25 +154,25 @@ public class BoardManager : MonoBehaviour
         selectedPiece = piece;
         selectedTile = tile;
 
-        SetColor(tile.gameObject, selectTileColor);
+        SetObjectColor(tile.gameObject, selectTileColor);
         ShowMoves(piece);
 
-        Debug.Log($"선택한 말: {piece.Team} {piece.Type} ({piece.X}, {piece.Z})");
+        Debug.Log($"선택: {piece.Team} {piece.Type} ({piece.X}, {piece.Z})");
     }
 
-    // 이동 가능 칸 표시
+    // 이동 칸 표시
     private void ShowMoves(Piece piece)
     {
-        moveTiles.Clear();
+        moveList.Clear();
 
         if (piece is Pawn pawn)
         {
-            List<Vector2Int> moves = pawn.GetMoves(pieces, size);
+            List<Vector2Int> moves = pawn.GetMoves(board, size);
 
             for (int i = 0; i < moves.Count; i++)
             {
-                moveTiles.Add(moves[i]);
-                SetColor(tiles[moves[i].x, moves[i].y], moveTileColor);
+                moveList.Add(moves[i]);
+                SetObjectColor(tiles[moves[i].x, moves[i].y], moveTileColor);
             }
         }
     }
@@ -184,9 +180,9 @@ public class BoardManager : MonoBehaviour
     // 이동 가능 여부
     private bool CanMove(Vector2Int pos)
     {
-        for (int i = 0; i < moveTiles.Count; i++)
+        for (int i = 0; i < moveList.Count; i++)
         {
-            if (moveTiles[i] == pos)
+            if (moveList[i] == pos)
             {
                 return true;
             }
@@ -196,15 +192,23 @@ public class BoardManager : MonoBehaviour
     }
 
     // 말 이동
-    private void MovePiece(Piece piece, int newX, int newZ)
+    private void MovePiece(Piece piece, int x, int z)
     {
-        pieces[piece.X, piece.Z] = null;
-        pieces[newX, newZ] = piece;
+        Piece targetPiece = board[x, z];
 
-        piece.transform.position = GetPiecePos(newX, newZ);
-        piece.SetPos(newX, newZ);
+        // 상대 말 제거
+        if (targetPiece != null && targetPiece.Team != piece.Team)
+        {
+            Destroy(targetPiece.gameObject);
+        }
 
-        Debug.Log($"이동 완료: ({newX}, {newZ})");
+        board[piece.X, piece.Z] = null;
+        board[x, z] = piece;
+
+        piece.transform.position = GetPiecePos(x, z);
+        piece.SetPos(x, z);
+
+        Debug.Log($"이동: ({x}, {z})");
     }
 
     // 턴 변경
@@ -215,29 +219,29 @@ public class BoardManager : MonoBehaviour
     }
 
     // 선택 해제
-    private void ClearSelection()
+    private void ClearSelect()
     {
         if (selectedTile != null)
         {
             ResetTileColor(selectedTile.X, selectedTile.Z);
         }
 
-        for (int i = 0; i < moveTiles.Count; i++)
+        for (int i = 0; i < moveList.Count; i++)
         {
-            ResetTileColor(moveTiles[i].x, moveTiles[i].y);
+            ResetTileColor(moveList[i].x, moveList[i].y);
         }
 
-        moveTiles.Clear();
+        moveList.Clear();
         selectedTile = null;
         selectedPiece = null;
     }
 
-    // 타일 기본 색
+    // 타일 색 설정
     private void SetTileColor(GameObject tileObj, int x, int z)
     {
         bool isWhite = (x + z) % 2 != 0;
         Color color = isWhite ? whiteTileColor : blackTileColor;
-        SetColor(tileObj, color);
+        SetObjectColor(tileObj, color);
     }
 
     // 타일 정보 저장
@@ -256,34 +260,34 @@ public class BoardManager : MonoBehaviour
     // 말 색 설정
     private void SetPieceColor(GameObject pieceObj, Team team)
     {
-        Renderer[] renderers = pieceObj.GetComponentsInChildren<Renderer>();
-        if (renderers == null || renderers.Length == 0) return;
+        Renderer[] rds = pieceObj.GetComponentsInChildren<Renderer>();
+        if (rds == null || rds.Length == 0) return;
 
         Color color = team == Team.White ? whitePieceColor : blackPieceColor;
 
-        for (int i = 0; i < renderers.Length; i++)
+        for (int i = 0; i < rds.Length; i++)
         {
-            block.Clear();
-            block.SetColor(colorProp, color);
-            renderers[i].SetPropertyBlock(block);
+            mpb.Clear();
+            mpb.SetColor(colorKey, color);
+            rds[i].SetPropertyBlock(mpb);
         }
     }
 
-    // 타일 색 복구
+    // 타일 원래 색 복구
     private void ResetTileColor(int x, int z)
     {
         SetTileColor(tiles[x, z], x, z);
     }
 
     // 단일 오브젝트 색 적용
-    private void SetColor(GameObject obj, Color color)
+    private void SetObjectColor(GameObject obj, Color color)
     {
         Renderer rd = obj.GetComponent<Renderer>();
         if (rd == null) return;
 
-        block.Clear();
-        block.SetColor(colorProp, color);
-        rd.SetPropertyBlock(block);
+        mpb.Clear();
+        mpb.SetColor(colorKey, color);
+        rd.SetPropertyBlock(mpb);
     }
 
     // 말 위치 계산
@@ -291,4 +295,5 @@ public class BoardManager : MonoBehaviour
     {
         return new Vector3(x * tileSize, pieceY, z * tileSize);
     }
+    
 }

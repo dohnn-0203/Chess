@@ -651,7 +651,7 @@ MonoBehaviour:
   tileHeight: 0.2
   pieceY: 0
   tilePrefab: {fileID: 3615342486155492177, guid: 5464a92b203dc59448b3b7e3f98a5eed, type: 3}
-  piecePrefab: {fileID: 1563205284839848349, guid: aa2453e21fe64a142ab744519fca0924, type: 3}
+  pawnPrefab: {fileID: 1563205284839848349, guid: aa2453e21fe64a142ab744519fca0924, type: 3}
   boardRoot: {fileID: 117765447}
   piecesRoot: {fileID: 1181537607}
   whiteRoot: {fileID: 1781211412}
@@ -662,7 +662,7 @@ MonoBehaviour:
   moveTileColor: {r: 0.4, g: 0.8, b: 0.4, a: 1}
   whitePieceColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
   blackPieceColor: {r: 0.25, g: 0.25, b: 0.25, a: 1}
-  colorProp: _Color
+  colorKey: _Color
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
