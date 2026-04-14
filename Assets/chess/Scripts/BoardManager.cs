@@ -12,8 +12,10 @@ public class BoardManager : MonoBehaviour
     [Header("프리팹")]
     [SerializeField] private GameObject tilePrefab;
     [SerializeField] private GameObject pawnPrefab;
+    [SerializeField] private GameObject rookPrefab;
+    [SerializeField] private GameObject knightPrefab;
 
-    [Header("부모 오브젝트")]
+    [Header("부모")]
     [SerializeField] private Transform boardRoot;
     [SerializeField] private Transform piecesRoot;
     [SerializeField] private Transform whiteRoot;
@@ -47,9 +49,17 @@ public class BoardManager : MonoBehaviour
         mpb = new MaterialPropertyBlock();
 
         CreateBoard();
-        CreatePawns();
+        CreatePieces();
 
         Debug.Log($"현재 턴: {turn}");
+    }
+
+    // 전체 생성
+    private void CreatePieces()
+    {
+        CreatePawns();
+        CreateRooks();
+        CreateKnights();
     }
 
     // 보드 생성
@@ -86,13 +96,35 @@ public class BoardManager : MonoBehaviour
         }
     }
 
+    // 룩 생성
+    private void CreateRooks()
+    {
+        SpawnRook(Team.White, 0, 0);
+        SpawnRook(Team.White, 7, 0);
+
+        SpawnRook(Team.Black, 0, 7);
+        SpawnRook(Team.Black, 7, 7);
+    }
+
+    // 나이트 생성
+    private void CreateKnights()
+    {
+        SpawnKnight(Team.White, 1, 0);
+        SpawnKnight(Team.White, 6, 0);
+
+        SpawnKnight(Team.Black, 1, 7);
+        SpawnKnight(Team.Black, 6, 7);
+    }
+
     // 폰 하나 생성
     private void SpawnPawn(Team team, int x, int z)
     {
-        Vector3 pos = GetPiecePos(x, z);
-        Transform parent = team == Team.White ? whiteRoot : blackRoot;
+        if (pawnPrefab == null) return;
 
-        GameObject obj = Instantiate(pawnPrefab, pos, Quaternion.identity, parent);
+        Vector3 pos = GetPiecePos(x, z);
+        Transform root = GetTeamRoot(team);
+
+        GameObject obj = Instantiate(pawnPrefab, pos, Quaternion.identity, root);
         obj.name = $"{team}_Pawn_{x}_{z}";
 
         Pawn pawn = obj.GetComponent<Pawn>();
@@ -105,6 +137,58 @@ public class BoardManager : MonoBehaviour
         SetPieceColor(obj, team);
 
         board[x, z] = pawn;
+    }
+
+    // 룩 하나 생성
+    private void SpawnRook(Team team, int x, int z)
+    {
+        if (rookPrefab == null) return;
+
+        Vector3 pos = GetPiecePos(x, z);
+        Transform root = GetTeamRoot(team);
+
+        GameObject obj = Instantiate(rookPrefab, pos, Quaternion.identity, root);
+        obj.name = $"{team}_Rook_{x}_{z}";
+
+        Rook rook = obj.GetComponent<Rook>();
+        if (rook == null)
+        {
+            rook = obj.AddComponent<Rook>();
+        }
+
+        rook.Init(team, PieceType.Rook, x, z);
+        SetPieceColor(obj, team);
+
+        board[x, z] = rook;
+    }
+
+    // 나이트 하나 생성
+    private void SpawnKnight(Team team, int x, int z)
+    {
+        if (knightPrefab == null) return;
+
+        Vector3 pos = GetPiecePos(x, z);
+        Transform root = GetTeamRoot(team);
+
+        GameObject obj = Instantiate(knightPrefab, pos, Quaternion.identity, root);
+        obj.name = $"{team}_Knight_{x}_{z}";
+
+        Knight knight = obj.GetComponent<Knight>();
+        if (knight == null)
+        {
+            knight = obj.AddComponent<Knight>();
+        }
+
+        knight.Init(team, PieceType.Knight, x, z);
+        SetPieceColor(obj, team);
+
+        board[x, z] = knight;
+    }
+
+    // 팀별 부모
+    private Transform GetTeamRoot(Team team)
+    {
+        return team == Team.White ? whiteRoot : blackRoot;
     }
 
     // 타일 클릭
@@ -165,16 +249,34 @@ public class BoardManager : MonoBehaviour
     {
         moveList.Clear();
 
+        List<Vector2Int> moves = GetMoves(piece);
+
+        for (int i = 0; i < moves.Count; i++)
+        {
+            moveList.Add(moves[i]);
+            SetObjectColor(tiles[moves[i].x, moves[i].y], moveTileColor);
+        }
+    }
+
+    // 말 종류별 이동 계산
+    private List<Vector2Int> GetMoves(Piece piece)
+    {
         if (piece is Pawn pawn)
         {
-            List<Vector2Int> moves = pawn.GetMoves(board, size);
-
-            for (int i = 0; i < moves.Count; i++)
-            {
-                moveList.Add(moves[i]);
-                SetObjectColor(tiles[moves[i].x, moves[i].y], moveTileColor);
-            }
+            return pawn.GetMoves(board, size);
         }
+
+        if (piece is Rook rook)
+        {
+            return rook.GetMoves(board, size);
+        }
+
+        if (piece is Knight knight)
+        {
+            return knight.GetMoves(board, size);
+        }
+
+        return new List<Vector2Int>();
     }
 
     // 이동 가능 여부
@@ -194,12 +296,12 @@ public class BoardManager : MonoBehaviour
     // 말 이동
     private void MovePiece(Piece piece, int x, int z)
     {
-        Piece targetPiece = board[x, z];
+        Piece target = board[x, z];
 
         // 상대 말 제거
-        if (targetPiece != null && targetPiece.Team != piece.Team)
+        if (target != null && target.Team != piece.Team)
         {
-            Destroy(targetPiece.gameObject);
+            Destroy(target.gameObject);
         }
 
         board[piece.X, piece.Z] = null;
@@ -273,13 +375,13 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    // 타일 원래 색 복구
+    // 타일 색 복구
     private void ResetTileColor(int x, int z)
     {
         SetTileColor(tiles[x, z], x, z);
     }
 
-    // 단일 오브젝트 색 적용
+    // 오브젝트 색 적용
     private void SetObjectColor(GameObject obj, Color color)
     {
         Renderer rd = obj.GetComponent<Renderer>();
@@ -290,10 +392,9 @@ public class BoardManager : MonoBehaviour
         rd.SetPropertyBlock(mpb);
     }
 
-    // 말 위치 계산
+    // 말 위치
     private Vector3 GetPiecePos(int x, int z)
     {
         return new Vector3(x * tileSize, pieceY, z * tileSize);
     }
-    
 }

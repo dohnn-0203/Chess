@@ -652,6 +652,8 @@ MonoBehaviour:
   pieceY: 0
   tilePrefab: {fileID: 3615342486155492177, guid: 5464a92b203dc59448b3b7e3f98a5eed, type: 3}
   pawnPrefab: {fileID: 1563205284839848349, guid: aa2453e21fe64a142ab744519fca0924, type: 3}
+  rookPrefab: {fileID: 1563205284839848349, guid: d6cb2de60fd9cde4aa1d44c38fd86556, type: 3}
+  knightPrefab: {fileID: 8137406211589759254, guid: 2185e46222e13334b8d1906fe5a1ce03, type: 3}
   boardRoot: {fileID: 117765447}
   piecesRoot: {fileID: 1181537607}
   whiteRoot: {fileID: 1781211412}
