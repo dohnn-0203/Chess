@@ -11,7 +11,8 @@ public enum PieceType
     Pawn,
     Rook,
     Knight,
-    Bishop
+    Bishop,
+    Queen
 }
 
 public class Piece : MonoBehaviour
