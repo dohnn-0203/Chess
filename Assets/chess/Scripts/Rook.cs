@@ -3,7 +3,6 @@ using UnityEngine;
 
 public class Rook : Piece
 {
-    // 이동 가능한 칸
     public List<Vector2Int> GetMoves(Piece[,] board, int size)
     {
         List<Vector2Int> moves = new List<Vector2Int>();
@@ -16,7 +15,6 @@ public class Rook : Piece
         return moves;
     }
 
-    // 한 방향 탐색
     private void AddLine(List<Vector2Int> moves, Piece[,] board, int size, int dx, int dz)
     {
         int x = X + dx;
@@ -25,7 +23,6 @@ public class Rook : Piece
         while (InRange(x, z, size))
         {
             Piece target = board[x, z];
-
             if (target == null)
             {
                 moves.Add(new Vector2Int(x, z));
@@ -45,7 +42,6 @@ public class Rook : Piece
         }
     }
 
-    // 범위 체크
     private bool InRange(int x, int z, int size)
     {
         return x >= 0 && x < size && z >= 0 && z < size;

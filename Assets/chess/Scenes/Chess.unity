@@ -656,6 +656,7 @@ MonoBehaviour:
   knightPrefab: {fileID: 8137406211589759254, guid: 2185e46222e13334b8d1906fe5a1ce03, type: 3}
   bishopPrefab: {fileID: 8446247697111066228, guid: f717a74937f57c94f8c97cb780ff82bc, type: 3}
   queenPrefab: {fileID: 2075344616539421614, guid: aeb2c5d661b53554fab31ac990eb83cd, type: 3}
+  kingPrefab: {fileID: 6621144855558547117, guid: c08e50d5d22d5e648bf67413e5e324b6, type: 3}
   boardRoot: {fileID: 117765447}
   piecesRoot: {fileID: 1181537607}
   whiteRoot: {fileID: 1781211412}

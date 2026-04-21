@@ -12,7 +12,8 @@ public enum PieceType
     Rook,
     Knight,
     Bishop,
-    Queen
+    Queen,
+    King
 }
 
 public class Piece : MonoBehaviour
@@ -24,7 +25,6 @@ public class Piece : MonoBehaviour
     public int Z { get; private set; }
     public bool HasMoved { get; private set; }
 
-    // 기본 정보 설정
     public virtual void Init(Team team, PieceType type, int x, int z)
     {
         Team = team;
@@ -34,7 +34,6 @@ public class Piece : MonoBehaviour
         HasMoved = false;
     }
 
-    // 위치 갱신
     public void SetPos(int x, int z)
     {
         X = x;

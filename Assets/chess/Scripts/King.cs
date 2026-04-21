@@ -1,28 +1,28 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Knight : Piece
+public class King : Piece
 {
-    private static readonly Vector2Int[] Dirs =
+    private static readonly Vector2Int[] Directions =
     {
-        new Vector2Int(-2, -1),
-        new Vector2Int(-2, 1),
-        new Vector2Int(-1, -2),
-        new Vector2Int(-1, 2),
-        new Vector2Int(1, -2),
-        new Vector2Int(1, 2),
-        new Vector2Int(2, -1),
-        new Vector2Int(2, 1)
+        new Vector2Int(-1, -1),
+        new Vector2Int(-1, 0),
+        new Vector2Int(-1, 1),
+        new Vector2Int(0, -1),
+        new Vector2Int(0, 1),
+        new Vector2Int(1, -1),
+        new Vector2Int(1, 0),
+        new Vector2Int(1, 1)
     };
 
     public List<Vector2Int> GetMoves(Piece[,] board, int size)
     {
         List<Vector2Int> moves = new List<Vector2Int>();
 
-        for (int i = 0; i < Dirs.Length; i++)
+        for (int i = 0; i < Directions.Length; i++)
         {
-            int x = X + Dirs[i].x;
-            int z = Z + Dirs[i].y;
+            int x = X + Directions[i].x;
+            int z = Z + Directions[i].y;
 
             if (!InRange(x, z, size))
             {
