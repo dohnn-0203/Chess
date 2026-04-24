@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// 나이트 이동
 public class Knight : Piece
 {
     private static readonly Vector2Int[] Dirs =
@@ -15,6 +16,7 @@ public class Knight : Piece
         new Vector2Int(2, 1)
     };
 
+    // 이동 구하기
     public List<Vector2Int> GetMoves(Piece[,] board, int size)
     {
         List<Vector2Int> moves = new List<Vector2Int>();
@@ -39,6 +41,7 @@ public class Knight : Piece
         return moves;
     }
 
+    // 범위 체크
     private bool InRange(int x, int z, int size)
     {
         return x >= 0 && x < size && z >= 0 && z < size;

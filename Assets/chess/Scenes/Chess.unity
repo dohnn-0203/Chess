@@ -612,6 +612,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1872840350}
   - component: {fileID: 1872840351}
+  - component: {fileID: 1872840352}
   m_Layer: 0
   m_Name: BoardManager
   m_TagString: Untagged
@@ -668,6 +669,18 @@ MonoBehaviour:
   whitePieceColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
   blackPieceColor: {r: 0.25, g: 0.25, b: 0.25, a: 1}
   colorKey: _Color
+--- !u!114 &1872840352
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1872840349}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4c5b734e0f5f45d7b91f344a5db27435, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

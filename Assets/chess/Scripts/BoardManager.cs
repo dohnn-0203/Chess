@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// 보드 관리
 public class BoardManager : MonoBehaviour
 {
     [Header("Board")]
@@ -27,223 +28,259 @@ public class BoardManager : MonoBehaviour
     [Header("Tile Colors")]
     [SerializeField] private Color whiteTileColor = Color.white;
     [SerializeField] private Color blackTileColor = new Color(0.16f, 0.16f, 0.16f);
-    [SerializeField] private Color selectTileColor = new Color(0.8f, 0.8f, 0.2f);
-    [SerializeField] private Color moveTileColor = new Color(0.4f, 0.8f, 0.4f);
+    [SerializeField] private Color selectColor = new Color(0.8f, 0.8f, 0.2f);
+    [SerializeField] private Color moveColor = new Color(0.4f, 0.8f, 0.4f);
 
     [Header("Piece Colors")]
     [SerializeField] private Color whitePieceColor = new Color(0.9f, 0.9f, 0.9f);
     [SerializeField] private Color blackPieceColor = new Color(0.25f, 0.25f, 0.25f);
 
-    [Header("Shader Property")]
+    [Header("Shader")]
     [SerializeField] private string colorKey = "_Color";
 
     private GameObject[,] tiles;
-    private Piece[,] board;
-    private MaterialPropertyBlock mpb;
+    private Piece[,] pieces;
+    private MaterialPropertyBlock block;
+    private ChessGame game;
 
-    private Tile selectedTile;
-    private Piece selectedPiece;
-    private readonly List<Vector2Int> moveList = new List<Vector2Int>();
+    public int Size => size;
 
-    private Team turn = Team.White;
-
+    // 시작
     private void Start()
     {
-        mpb = new MaterialPropertyBlock();
+        block = new MaterialPropertyBlock();
+        tiles = new GameObject[size, size];
+        pieces = new Piece[size, size];
 
         CreateBoard();
         CreatePieces();
 
-        Debug.Log($"Current turn: {turn}");
+        game = GetComponent<ChessGame>();
+        if (game != null)
+        {
+            game.Init(this);
+        }
     }
 
-    private void CreatePieces()
+    // 타일 클릭
+    public void ClickTile(Tile tile)
     {
-        CreatePawns();
-        CreateRooks();
-        CreateKnights();
-        CreateBishops();
-        CreateQueens();
-        CreateKings();
+        if (game == null)
+        {
+            return;
+        }
+
+        game.ClickTile(tile);
     }
 
+    // 범위 체크
+    public bool IsInside(int x, int z)
+    {
+        return x >= 0 && x < size && z >= 0 && z < size;
+    }
+
+    // 말 가져오기
+    public Piece GetPiece(int x, int z)
+    {
+        return pieces[x, z];
+    }
+
+    // 말 넣기
+    public void SetPiece(int x, int z, Piece piece)
+    {
+        pieces[x, z] = piece;
+    }
+
+    // 말 이동
+    public void MovePiece(Piece piece, int x, int z)
+    {
+        piece.transform.position = GetPiecePos(x, z);
+        piece.SetPos(x, z);
+        pieces[x, z] = piece;
+    }
+
+    // 말 삭제
+    public void RemovePiece(Piece piece)
+    {
+        if (piece == null)
+        {
+            return;
+        }
+
+        pieces[piece.X, piece.Z] = null;
+        Destroy(piece.gameObject);
+    }
+
+    // 선택 칸 표시
+    public void HighlightSelect(int x, int z)
+    {
+        SetTileColor(tiles[x, z], selectColor);
+    }
+
+    // 이동 칸 표시
+    public void HighlightMoves(List<Vector2Int> list)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            Vector2Int pos = list[i];
+            SetTileColor(tiles[pos.x, pos.y], moveColor);
+        }
+    }
+
+    // 표시 지우기
+    public void ClearHighlights(Tile tile, List<Vector2Int> list)
+    {
+        if (tile != null)
+        {
+            ResetTile(tile.X, tile.Z);
+        }
+
+        for (int i = 0; i < list.Count; i++)
+        {
+            Vector2Int pos = list[i];
+            ResetTile(pos.x, pos.y);
+        }
+    }
+
+    // 말 생성
+    public Piece SpawnPiece(PieceType type, Team team, int x, int z)
+    {
+        GameObject prefab = GetPiecePrefab(type);
+        if (prefab == null)
+        {
+            return null;
+        }
+
+        GameObject obj = Instantiate(prefab, GetPiecePos(x, z), Quaternion.identity, GetRoot(team));
+        obj.name = $"{team}_{type}_{x}_{z}";
+
+        Piece piece = AddPieceScript(obj, type);
+        piece.Init(team, type, x, z);
+        SetPieceColor(obj, team);
+        pieces[x, z] = piece;
+
+        return piece;
+    }
+
+    // 보드 생성
     private void CreateBoard()
     {
-        tiles = new GameObject[size, size];
-        board = new Piece[size, size];
-
         for (int x = 0; x < size; x++)
         {
             for (int z = 0; z < size; z++)
             {
                 Vector3 pos = new Vector3(x * tileSize, 0f, z * tileSize);
-                GameObject tileObj = Instantiate(tilePrefab, pos, Quaternion.identity, boardRoot);
+                GameObject obj = Instantiate(tilePrefab, pos, Quaternion.identity, boardRoot);
 
-                tileObj.name = $"Tile_{x}_{z}";
-                tileObj.transform.localScale = new Vector3(tileSize, tileHeight, tileSize);
+                obj.name = $"Tile_{x}_{z}";
+                obj.transform.localScale = new Vector3(tileSize, tileHeight, tileSize);
 
-                SetTileColor(tileObj, x, z);
-                SetTileData(tileObj, x, z);
+                Tile tile = obj.GetComponent<Tile>();
+                if (tile == null)
+                {
+                    tile = obj.AddComponent<Tile>();
+                }
 
-                tiles[x, z] = tileObj;
+                tile.Init(x, z, this);
+                ResetTile(x, z, obj);
+                tiles[x, z] = obj;
             }
         }
     }
 
-    private void CreatePawns()
+    // 시작 배치
+    private void CreatePieces()
     {
         for (int x = 0; x < size; x++)
         {
-            SpawnPawn(Team.White, x, 1);
-            SpawnPawn(Team.Black, x, 6);
+            SpawnPiece(PieceType.Pawn, Team.White, x, 1);
+            SpawnPiece(PieceType.Pawn, Team.Black, x, 6);
         }
+
+        SpawnPiece(PieceType.Rook, Team.White, 0, 0);
+        SpawnPiece(PieceType.Rook, Team.White, 7, 0);
+        SpawnPiece(PieceType.Rook, Team.Black, 0, 7);
+        SpawnPiece(PieceType.Rook, Team.Black, 7, 7);
+
+        SpawnPiece(PieceType.Knight, Team.White, 1, 0);
+        SpawnPiece(PieceType.Knight, Team.White, 6, 0);
+        SpawnPiece(PieceType.Knight, Team.Black, 1, 7);
+        SpawnPiece(PieceType.Knight, Team.Black, 6, 7);
+
+        SpawnPiece(PieceType.Bishop, Team.White, 2, 0);
+        SpawnPiece(PieceType.Bishop, Team.White, 5, 0);
+        SpawnPiece(PieceType.Bishop, Team.Black, 2, 7);
+        SpawnPiece(PieceType.Bishop, Team.Black, 5, 7);
+
+        SpawnPiece(PieceType.Queen, Team.White, 3, 0);
+        SpawnPiece(PieceType.Queen, Team.Black, 3, 7);
+
+        SpawnPiece(PieceType.King, Team.White, 4, 0);
+        SpawnPiece(PieceType.King, Team.Black, 4, 7);
     }
 
-    private void CreateRooks()
+    // 프리팹 찾기
+    private GameObject GetPiecePrefab(PieceType type)
     {
-        SpawnRook(Team.White, 0, 0);
-        SpawnRook(Team.White, 7, 0);
-        SpawnRook(Team.Black, 0, 7);
-        SpawnRook(Team.Black, 7, 7);
-    }
-
-    private void CreateKnights()
-    {
-        SpawnKnight(Team.White, 1, 0);
-        SpawnKnight(Team.White, 6, 0);
-        SpawnKnight(Team.Black, 1, 7);
-        SpawnKnight(Team.Black, 6, 7);
-    }
-
-    private void CreateBishops()
-    {
-        SpawnBishop(Team.White, 2, 0);
-        SpawnBishop(Team.White, 5, 0);
-        SpawnBishop(Team.Black, 2, 7);
-        SpawnBishop(Team.Black, 5, 7);
-    }
-
-    private void CreateQueens()
-    {
-        SpawnQueen(Team.White, 3, 0);
-        SpawnQueen(Team.Black, 3, 7);
-    }
-
-    private void CreateKings()
-    {
-        SpawnKing(Team.White, 4, 0);
-        SpawnKing(Team.Black, 4, 7);
-    }
-
-    private void SpawnPawn(Team team, int x, int z)
-    {
-        if (pawnPrefab == null) return;
-
-        GameObject obj = Instantiate(pawnPrefab, GetPiecePos(x, z), Quaternion.identity, GetTeamRoot(team));
-        obj.name = $"{team}_Pawn_{x}_{z}";
-
-        Pawn piece = obj.GetComponent<Pawn>();
-        if (piece == null)
+        switch (type)
         {
-            piece = obj.AddComponent<Pawn>();
+            case PieceType.Pawn:
+                return pawnPrefab;
+            case PieceType.Rook:
+                return rookPrefab;
+            case PieceType.Knight:
+                return knightPrefab;
+            case PieceType.Bishop:
+                return bishopPrefab;
+            case PieceType.Queen:
+                return queenPrefab;
+            case PieceType.King:
+                return kingPrefab;
+            default:
+                return null;
         }
-
-        piece.Init(team, PieceType.Pawn, x, z);
-        SetPieceColor(obj, team);
-        board[x, z] = piece;
     }
 
-    private void SpawnRook(Team team, int x, int z)
+    // 컴포넌트 붙이기
+    private Piece AddPieceScript(GameObject obj, PieceType type)
     {
-        if (rookPrefab == null) return;
-
-        GameObject obj = Instantiate(rookPrefab, GetPiecePos(x, z), Quaternion.identity, GetTeamRoot(team));
-        obj.name = $"{team}_Rook_{x}_{z}";
-
-        Rook piece = obj.GetComponent<Rook>();
-        if (piece == null)
+        switch (type)
         {
-            piece = obj.AddComponent<Rook>();
+            case PieceType.Pawn:
+            {
+                Pawn pawn = obj.GetComponent<Pawn>();
+                return pawn != null ? pawn : obj.AddComponent<Pawn>();
+            }
+            case PieceType.Rook:
+            {
+                Rook rook = obj.GetComponent<Rook>();
+                return rook != null ? rook : obj.AddComponent<Rook>();
+            }
+            case PieceType.Knight:
+            {
+                Knight knight = obj.GetComponent<Knight>();
+                return knight != null ? knight : obj.AddComponent<Knight>();
+            }
+            case PieceType.Bishop:
+            {
+                Bishop bishop = obj.GetComponent<Bishop>();
+                return bishop != null ? bishop : obj.AddComponent<Bishop>();
+            }
+            case PieceType.Queen:
+            {
+                Queen queen = obj.GetComponent<Queen>();
+                return queen != null ? queen : obj.AddComponent<Queen>();
+            }
+            default:
+            {
+                King king = obj.GetComponent<King>();
+                return king != null ? king : obj.AddComponent<King>();
+            }
         }
-
-        piece.Init(team, PieceType.Rook, x, z);
-        SetPieceColor(obj, team);
-        board[x, z] = piece;
     }
 
-    private void SpawnKnight(Team team, int x, int z)
-    {
-        if (knightPrefab == null) return;
-
-        GameObject obj = Instantiate(knightPrefab, GetPiecePos(x, z), Quaternion.identity, GetTeamRoot(team));
-        obj.name = $"{team}_Knight_{x}_{z}";
-
-        Knight piece = obj.GetComponent<Knight>();
-        if (piece == null)
-        {
-            piece = obj.AddComponent<Knight>();
-        }
-
-        piece.Init(team, PieceType.Knight, x, z);
-        SetPieceColor(obj, team);
-        board[x, z] = piece;
-    }
-
-    private void SpawnBishop(Team team, int x, int z)
-    {
-        if (bishopPrefab == null) return;
-
-        GameObject obj = Instantiate(bishopPrefab, GetPiecePos(x, z), Quaternion.identity, GetTeamRoot(team));
-        obj.name = $"{team}_Bishop_{x}_{z}";
-
-        Bishop piece = obj.GetComponent<Bishop>();
-        if (piece == null)
-        {
-            piece = obj.AddComponent<Bishop>();
-        }
-
-        piece.Init(team, PieceType.Bishop, x, z);
-        SetPieceColor(obj, team);
-        board[x, z] = piece;
-    }
-
-    private void SpawnQueen(Team team, int x, int z)
-    {
-        if (queenPrefab == null) return;
-
-        GameObject obj = Instantiate(queenPrefab, GetPiecePos(x, z), Quaternion.identity, GetTeamRoot(team));
-        obj.name = $"{team}_Queen_{x}_{z}";
-
-        Queen piece = obj.GetComponent<Queen>();
-        if (piece == null)
-        {
-            piece = obj.AddComponent<Queen>();
-        }
-
-        piece.Init(team, PieceType.Queen, x, z);
-        SetPieceColor(obj, team);
-        board[x, z] = piece;
-    }
-
-    private void SpawnKing(Team team, int x, int z)
-    {
-        if (kingPrefab == null) return;
-
-        GameObject obj = Instantiate(kingPrefab, GetPiecePos(x, z), Quaternion.identity, GetTeamRoot(team));
-        obj.name = $"{team}_King_{x}_{z}";
-
-        King piece = obj.GetComponent<King>();
-        if (piece == null)
-        {
-            piece = obj.AddComponent<King>();
-        }
-
-        piece.Init(team, PieceType.King, x, z);
-        SetPieceColor(obj, team);
-        board[x, z] = piece;
-    }
-
-    private Transform GetTeamRoot(Team team)
+    // 부모 찾기
+    private Transform GetRoot(Team team)
     {
         if (team == Team.White)
         {
@@ -253,181 +290,53 @@ public class BoardManager : MonoBehaviour
         return blackRoot != null ? blackRoot : piecesRoot;
     }
 
-    public void SelectTile(Tile tile)
+    // 타일 초기화
+    private void ResetTile(int x, int z)
     {
-        Piece clickedPiece = board[tile.X, tile.Z];
-
-        if (selectedPiece == null)
-        {
-            if (clickedPiece != null && clickedPiece.Team == turn)
-            {
-                SelectPiece(clickedPiece, tile);
-            }
-
-            return;
-        }
-
-        if (clickedPiece == selectedPiece)
-        {
-            ClearSelect();
-            return;
-        }
-
-        Vector2Int target = new Vector2Int(tile.X, tile.Z);
-
-        if (CanMove(target))
-        {
-            MovePiece(selectedPiece, tile.X, tile.Z);
-            ChangeTurn();
-            ClearSelect();
-            return;
-        }
-
-        if (clickedPiece != null && clickedPiece.Team == turn)
-        {
-            ClearSelect();
-            SelectPiece(clickedPiece, tile);
-            return;
-        }
-
-        ClearSelect();
+        ResetTile(x, z, tiles[x, z]);
     }
 
-    private void SelectPiece(Piece piece, Tile tile)
-    {
-        selectedPiece = piece;
-        selectedTile = tile;
-
-        SetObjectColor(tile.gameObject, selectTileColor);
-        ShowMoves(piece);
-
-        Debug.Log($"Selected: {piece.Team} {piece.Type} ({piece.X}, {piece.Z})");
-    }
-
-    private void ShowMoves(Piece piece)
-    {
-        moveList.Clear();
-
-        List<Vector2Int> moves = GetMoves(piece);
-        for (int i = 0; i < moves.Count; i++)
-        {
-            moveList.Add(moves[i]);
-            SetObjectColor(tiles[moves[i].x, moves[i].y], moveTileColor);
-        }
-    }
-
-    private List<Vector2Int> GetMoves(Piece piece)
-    {
-        if (piece is Pawn pawn) return pawn.GetMoves(board, size);
-        if (piece is Rook rook) return rook.GetMoves(board, size);
-        if (piece is Knight knight) return knight.GetMoves(board, size);
-        if (piece is Bishop bishop) return bishop.GetMoves(board, size);
-        if (piece is Queen queen) return queen.GetMoves(board, size);
-        if (piece is King king) return king.GetMoves(board, size);
-
-        return new List<Vector2Int>();
-    }
-
-    private bool CanMove(Vector2Int pos)
-    {
-        for (int i = 0; i < moveList.Count; i++)
-        {
-            if (moveList[i] == pos)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private void MovePiece(Piece piece, int x, int z)
-    {
-        Piece target = board[x, z];
-        if (target != null && target.Team != piece.Team)
-        {
-            Destroy(target.gameObject);
-        }
-
-        board[piece.X, piece.Z] = null;
-        board[x, z] = piece;
-
-        piece.transform.position = GetPiecePos(x, z);
-        piece.SetPos(x, z);
-
-        Debug.Log($"Moved to: ({x}, {z})");
-    }
-
-    private void ChangeTurn()
-    {
-        turn = turn == Team.White ? Team.Black : Team.White;
-        Debug.Log($"Current turn: {turn}");
-    }
-
-    private void ClearSelect()
-    {
-        if (selectedTile != null)
-        {
-            ResetTileColor(selectedTile.X, selectedTile.Z);
-        }
-
-        for (int i = 0; i < moveList.Count; i++)
-        {
-            ResetTileColor(moveList[i].x, moveList[i].y);
-        }
-
-        moveList.Clear();
-        selectedTile = null;
-        selectedPiece = null;
-    }
-
-    private void SetTileColor(GameObject tileObj, int x, int z)
+    // 타일 색 원복
+    private void ResetTile(int x, int z, GameObject obj)
     {
         bool isWhite = (x + z) % 2 != 0;
-        Color color = isWhite ? whiteTileColor : blackTileColor;
-        SetObjectColor(tileObj, color);
+        SetTileColor(obj, isWhite ? whiteTileColor : blackTileColor);
     }
 
-    private void SetTileData(GameObject tileObj, int x, int z)
-    {
-        Tile tile = tileObj.GetComponent<Tile>();
-        if (tile == null)
-        {
-            tile = tileObj.AddComponent<Tile>();
-        }
-
-        tile.Init(x, z, this);
-    }
-
-    private void SetPieceColor(GameObject pieceObj, Team team)
-    {
-        Renderer[] renderers = pieceObj.GetComponentsInChildren<Renderer>();
-        if (renderers == null || renderers.Length == 0) return;
-
-        Color color = team == Team.White ? whitePieceColor : blackPieceColor;
-        for (int i = 0; i < renderers.Length; i++)
-        {
-            mpb.Clear();
-            mpb.SetColor(colorKey, color);
-            renderers[i].SetPropertyBlock(mpb);
-        }
-    }
-
-    private void ResetTileColor(int x, int z)
-    {
-        SetTileColor(tiles[x, z], x, z);
-    }
-
-    private void SetObjectColor(GameObject obj, Color color)
+    // 타일 색 변경
+    private void SetTileColor(GameObject obj, Color color)
     {
         Renderer renderer = obj.GetComponent<Renderer>();
-        if (renderer == null) return;
+        if (renderer == null)
+        {
+            return;
+        }
 
-        mpb.Clear();
-        mpb.SetColor(colorKey, color);
-        renderer.SetPropertyBlock(mpb);
+        block.Clear();
+        block.SetColor(colorKey, color);
+        renderer.SetPropertyBlock(block);
     }
 
+    // 말 색 변경
+    private void SetPieceColor(GameObject obj, Team team)
+    {
+        Renderer[] renderers = obj.GetComponentsInChildren<Renderer>();
+        if (renderers == null || renderers.Length == 0)
+        {
+            return;
+        }
+
+        Color color = team == Team.White ? whitePieceColor : blackPieceColor;
+
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            block.Clear();
+            block.SetColor(colorKey, color);
+            renderers[i].SetPropertyBlock(block);
+        }
+    }
+
+    // 좌표 변환
     private Vector3 GetPiecePos(int x, int z)
     {
         return new Vector3(x * tileSize, pieceY, z * tileSize);

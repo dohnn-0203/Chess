@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// 폰 이동
 public class Pawn : Piece
 {
+    // 이동 구하기
     public List<Vector2Int> GetMoves(Piece[,] board, int size)
     {
         List<Vector2Int> moves = new List<Vector2Int>();
@@ -44,6 +46,7 @@ public class Pawn : Piece
         return moves;
     }
 
+    // 범위 체크
     private bool InRange(int x, int z, int size)
     {
         return x >= 0 && x < size && z >= 0 && z < size;

@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// 퀸 이동
 public class Queen : Piece
 {
+    // 이동 구하기
     public List<Vector2Int> GetMoves(Piece[,] board, int size)
     {
         List<Vector2Int> moves = new List<Vector2Int>();
@@ -20,6 +22,7 @@ public class Queen : Piece
         return moves;
     }
 
+    // 방향 체크
     private void AddLine(List<Vector2Int> moves, Piece[,] board, int size, int dx, int dz)
     {
         int x = X + dx;
@@ -47,6 +50,7 @@ public class Queen : Piece
         }
     }
 
+    // 범위 체크
     private bool InRange(int x, int z, int size)
     {
         return x >= 0 && x < size && z >= 0 && z < size;
