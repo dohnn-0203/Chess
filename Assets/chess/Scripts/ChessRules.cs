@@ -164,7 +164,9 @@ public class ChessRules
             list.Add(ChessMove.New(piece.X, nextZ));
 
             int twoZ = piece.Z + dir * 2;
-            if (!piece.HasMoved && board.IsInside(piece.X, twoZ) && board.GetPiece(piece.X, twoZ) == null)
+            int startZ = piece.Team == Team.White ? 1 : board.Size - 2;
+            if (!piece.HasMoved && piece.Z == startZ && board.IsInside(piece.X, twoZ)
+                && board.GetPiece(piece.X, twoZ) == null)
             {
                 list.Add(ChessMove.New(piece.X, twoZ));
             }
@@ -178,7 +180,12 @@ public class ChessRules
             return;
         }
 
-        if (nextZ != state.enPassantTile.y)
+        if (nextZ != state.enPassantTile.y
+            || !board.IsInside(state.enPassantTile.x, state.enPassantTile.y)
+            || !board.IsInside(state.enPassantPawn.x, state.enPassantPawn.y)
+            || board.GetPiece(state.enPassantTile.x, state.enPassantTile.y) != null
+            || state.enPassantPawn.x != state.enPassantTile.x
+            || state.enPassantPawn.y != piece.Z)
         {
             return;
         }
@@ -298,6 +305,12 @@ public class ChessRules
     // 캐슬링 체크
     private void AddCastle(Piece king, List<ChessMove> list, bool kingSide)
     {
+        int homeZ = king.Team == Team.White ? 0 : board.Size - 1;
+        if (king.X != 4 || king.Z != homeZ)
+        {
+            return;
+        }
+
         int rookX = kingSide ? board.Size - 1 : 0;
         Piece rook = board.GetPiece(rookX, king.Z);
 
