@@ -4,7 +4,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Debug = UnityEngine.Debug;
 
 // 실행 예: Unity -batchmode -projectPath <project> -executeMethod ChessValidation.RunRules
@@ -54,7 +56,7 @@ public static class ChessValidation
         Run(report, "Halfmove clock resets on pawn moves and captures", HalfmoveClock);
         Run(report, "Promotion offers queen rook bishop and knight", PromotionChoices);
         Run(report, "Invalid or unavailable promotion keeps the pawn", PromotionGuards);
-        Run(report, "Chess scene is included in player builds", BuildScene);
+        Run(report, "Build scene has active game components and assigned prefabs", BuildScene);
         report.completedUtc = DateTime.UtcNow.ToString("O");
 
         string json = JsonUtility.ToJson(report, true);
@@ -532,6 +534,43 @@ public static class ChessValidation
         True(found, "Chess scene must be enabled in build settings");
         True(AssetDatabase.LoadAssetAtPath<SceneAsset>(path) != null, "Chess scene asset exists");
 
+        Scene originalActive = SceneManager.GetActiveScene();
+        Scene chessScene = SceneManager.GetSceneByPath(path);
+        bool openedForValidation = !chessScene.IsValid() || !chessScene.isLoaded;
+        if (openedForValidation) chessScene = EditorSceneManager.OpenScene(path, OpenSceneMode.Additive);
+        try
+        {
+            List<BoardManager> managers = new List<BoardManager>();
+            List<GameObject> legacyLogs = new List<GameObject>();
+            foreach (GameObject rootObject in chessScene.GetRootGameObjects())
+            {
+                managers.AddRange(rootObject.GetComponentsInChildren<BoardManager>(true));
+                foreach (Transform child in rootObject.GetComponentsInChildren<Transform>(true))
+                    if (child.name == "LogText") legacyLogs.Add(child.gameObject);
+            }
+
+            Equal(1, managers.Count, "scene must have exactly one BoardManager");
+            BoardManager board = managers[0];
+            True(board.enabled && board.gameObject.activeInHierarchy, "BoardManager must be enabled on an active object");
+            ChessGame game = board.GetComponent<ChessGame>();
+            True(game != null && game.enabled && game.gameObject.activeInHierarchy, "ChessGame must be active on the BoardManager object");
+
+            SerializedObject serializedBoard = new SerializedObject(board);
+            foreach (string field in new[] { "tilePrefab", "pawnPrefab", "rookPrefab", "knightPrefab", "bishopPrefab", "queenPrefab", "kingPrefab" })
+            {
+                SerializedProperty property = serializedBoard.FindProperty(field);
+                True(property != null && property.objectReferenceValue != null, "scene prefab must be assigned: " + field);
+            }
+
+            Equal(1, legacyLogs.Count, "scene must have exactly one original LogText object");
+            True(!legacyLogs[0].activeSelf, "original LogText must be inactive so the replacement UI owns the display");
+            if (openedForValidation) True(!chessScene.isDirty, "scene inspection must not modify the asset");
+        }
+        finally
+        {
+            if (openedForValidation) EditorSceneManager.CloseScene(chessScene, true);
+            if (originalActive.IsValid() && originalActive.isLoaded) SceneManager.SetActiveScene(originalActive);
+        }
     }
 
     private static Team Other(Team team) { return team == Team.White ? Team.Black : Team.White; }
