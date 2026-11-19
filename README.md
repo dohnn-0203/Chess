@@ -53,6 +53,36 @@ Build Settings에 Chess 씬이 등록되어 있습니다. Windows 64-bit를 선�
 & $UnityEditor -batchmode -quit -projectPath $ProjectPath -executeMethod ChessBuild.Windows -chessBuildPath $ExePath -logFile $BuildLog
 ```
 
+## WebGL 빌드와 포트폴리오 삽입
+
+사용할 Unity 버전에 WebGL Build Support 모듈을 설치한 뒤 다음 명령을 실행합니다.
+`$WebGLPath`에는 실행 파일 이름 대신 빌드 결과를 저장할 폴더의 절대 경로를 지정합니다.
+
+```powershell
+& $UnityEditor -batchmode -quit -buildTarget WebGL -projectPath $ProjectPath -executeMethod ChessBuild.WebGL -chessBuildPath $WebGLPath -logFile $BuildLog
+```
+
+이 빌드는 GitHub Pages에서 사용할 수 있도록 Gzip 압축과 Decompression Fallback을 함께 적용합니다.
+압축 파일의 `.unityweb` 확장자와 로더가 참조하는 상대 경로를 그대로 유지해야 합니다.
+서버에서 파일별 `Content-Encoding`을 설정하지 않아도 Unity 로더가 압축을 해제합니다.
+브라우저에서 별도의 스레드나 교차 출처 격리 헤더를 요구하지 않도록 WebGL 스레드는 사용하지 않습니다.
+빌드가 끝나거나 실패하면 편집기의 기존 WebGL 설정으로 복원합니다.
+
+새 정적 사이트에는 빌드 폴더 전체를 복사하고, 페이지에서 다음과 같은 iframe으로 표시할 수 있습니다.
+
+```html
+<iframe src="games/chess/" title="체스 게임" allow="fullscreen" allowfullscreen></iframe>
+```
+
+현재 포트폴리오의 플레이 위치는 [체스 프로젝트 영역](https://dohnn-0203.github.io/#chess)입니다.
+포트폴리오의 `games/chess/index.html`, `player.js`, `player.css`는 로딩 상태와 오류 표시를 위한 전용 플레이어입니다.
+게임을 다시 빌드할 때는 이 파일들을 Unity가 생성한 기본 페이지로 덮어쓰지 않고, 새 `Build/` 파일만 교체합니다.
+그다음 `games/chess/build-config.json`의 `loaderUrl`, `dataUrl`, `frameworkUrl`, `codeUrl`을 새 빌드 파일 이름에 맞게 갱신합니다.
+
+페이지 이동 없이 실행하려면 시작 버튼을 눌렀을 때만 iframe을 생성하고, 종료 시에는 iframe을 제거합니다.
+이렇게 하면 포트폴리오를 처음 열 때 게임 파일을 내려받지 않고, 종료 후 게임이 사용하는 메모리도 해제할 수 있습니다.
+로컬 확인은 파일을 직접 여는 대신 HTTP 서버로 제공해야 하며, 실제 배포 후에는 브라우저에서 로딩과 입력을 확인합니다.
+
 ## 검증
 
 규칙 검증은 아래 명령으로 실행합니다. `$UnityEditor`에는 Unity.exe의 절대 경로를 지정합니다.
@@ -75,6 +105,10 @@ Build Settings에 Chess 씬이 등록되어 있습니다. Windows 64-bit를 선�
 
 이번 작업의 규칙 검사와 Windows 실행 검증은 별도 복사본에서 Unity 6000.3.17f1로 진행했습니다.
 원본 프로젝트의 Unity 2023.1.22f1 설정은 유지했으며 해당 버전에서의 실행 검증은 하지 못했습니다.
+
+WebGL 빌드는 WebGL Build Support가 설치된 Unity 2022.3.62f3의 별도 복사본에서 성공했습니다.
+이 빌드 복사본의 패키지 구성은 Unity 내장 모듈, TextMeshPro 3.0.6, UGUI 1.0.0으로 제한했습니다.
+원본 저장소의 Unity 버전과 패키지 설정은 유지했습니다. WebGL 빌드 성공과 실제 공개 페이지에서의 실행 검증은 구분합니다.
 
 ## 커밋 형식
 
