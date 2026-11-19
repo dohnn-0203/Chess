@@ -7,6 +7,7 @@ using UnityEngine;
 public class ChessGame : MonoBehaviour
 {
     public TMP_Text logText;
+    public bool CanInteract => state != null && !state.gameOver && !state.waitPromotion;
 
     private BoardManager board;
     private ChessState state;

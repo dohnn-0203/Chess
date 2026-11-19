@@ -18,9 +18,5 @@ public class Tile : MonoBehaviour
     public int X => x;
     public int Z => z;
 
-    // 클릭 처리
-    private void OnMouseDown()
-    {
-        board.ClickTile(this);
-    }
+    // 클릭은 BoardManager에서 UI와 말의 Collider를 함께 확인
 }

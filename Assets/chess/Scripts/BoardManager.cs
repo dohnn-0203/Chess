@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 // 보드 관리
 public class BoardManager : MonoBehaviour
@@ -44,10 +45,12 @@ public class BoardManager : MonoBehaviour
     private ChessGame game;
 
     public int Size => size;
+    public float TileSize => tileSize;
 
     // 시작
     private void Start()
     {
+        size = 8;
         block = new MaterialPropertyBlock();
         tiles = new GameObject[size, size];
         pieces = new Piece[size, size];
@@ -61,6 +64,68 @@ public class BoardManager : MonoBehaviour
             game.Init(this);
         }
     }
+
+    // UI 입력과 보드 입력을 한 곳에서 구분
+    private void Update()
+    {
+        if (game == null || !game.CanInteract || !Input.GetMouseButtonDown(0)) return;
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+        Camera camera = Camera.main;
+        if (camera == null || !camera.pixelRect.Contains(Input.mousePosition)) return;
+        Ray ray = camera.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+        if (Physics.Raycast(ray, out hit, 1000f))
+        {
+            Piece piece = hit.collider.GetComponentInParent<Piece>();
+            if (piece != null)
+            {
+                ClickTile(tiles[piece.X, piece.Z].GetComponent<Tile>());
+                return;
+            }
+            Tile tile = hit.collider.GetComponent<Tile>();
+            if (tile != null)
+            {
+                ClickTile(tile);
+                return;
+            }
+        }
+    }
+
+    public void ResetPieces()
+    {
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+                RemovePiece(pieces[x, z]);
+        CreatePieces();
+        ResetHighlights();
+    }
+
+    public void ResetHighlights()
+    {
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+                ResetTile(x, z);
+    }
+
+    public void HighlightLastMove(Vector2Int from, Vector2Int to)
+    {
+        Color lastColor = new Color(0.52f, 0.58f, 0.32f);
+        SetTileColor(tiles[from.x, from.y], lastColor);
+        SetTileColor(tiles[to.x, to.y], lastColor);
+    }
+
+    public void HighlightCheck(Team team)
+    {
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+            {
+                Piece piece = pieces[x, z];
+                if (piece != null && piece.Team == team && piece.Type == PieceType.King)
+                    SetTileColor(tiles[x, z], new Color(0.85f, 0.25f, 0.22f));
+            }
+    }
+
+
 
     // 타일 클릭
     public void ClickTile(Tile tile)
@@ -107,7 +172,8 @@ public class BoardManager : MonoBehaviour
             return;
         }
 
-        pieces[piece.X, piece.Z] = null;
+        if (pieces[piece.X, piece.Z] == piece) pieces[piece.X, piece.Z] = null;
+        piece.gameObject.SetActive(false);
         Destroy(piece.gameObject);
     }
 
@@ -157,10 +223,25 @@ public class BoardManager : MonoBehaviour
         Piece piece = AddPieceScript(obj, type);
         piece.Init(team, type, x, z);
         SetPieceColor(obj, team);
+        if (obj.GetComponentInChildren<Collider>() == null)
+        {
+            Renderer[] renderers = obj.GetComponentsInChildren<Renderer>();
+            if (renderers.Length > 0)
+            {
+                Bounds bounds = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+                BoxCollider collider = obj.AddComponent<BoxCollider>();
+                collider.center = obj.transform.InverseTransformPoint(bounds.center);
+                Vector3 scale = obj.transform.lossyScale;
+                collider.size = new Vector3(bounds.size.x / Mathf.Abs(scale.x), bounds.size.y / Mathf.Abs(scale.y), bounds.size.z / Mathf.Abs(scale.z));
+            }
+        }
         pieces[x, z] = piece;
 
         return piece;
     }
+
+
 
     // 보드 생성
     private void CreateBoard()
@@ -186,6 +267,32 @@ public class BoardManager : MonoBehaviour
                 tiles[x, z] = obj;
             }
         }
+        CreateCoordinates();
+    }
+
+    private void CreateCoordinates()
+    {
+        for (int i = 0; i < size; i++)
+        {
+            CreateLabel(((char)('a' + i)).ToString(), new Vector3(i * tileSize, 0.12f, -0.8f * tileSize));
+            CreateLabel(((char)('a' + i)).ToString(), new Vector3(i * tileSize, 0.12f, 7.8f * tileSize));
+            CreateLabel((i + 1).ToString(), new Vector3(-0.8f * tileSize, 0.12f, i * tileSize));
+            CreateLabel((i + 1).ToString(), new Vector3(7.8f * tileSize, 0.12f, i * tileSize));
+        }
+    }
+
+    private void CreateLabel(string value, Vector3 position)
+    {
+        GameObject obj = new GameObject("Coordinate_" + value);
+        obj.transform.SetParent(boardRoot, false);
+        obj.transform.position = position;
+        obj.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        TextMesh label = obj.AddComponent<TextMesh>();
+        label.text = value;
+        label.fontSize = 64;
+        label.characterSize = 0.065f * tileSize;
+        label.anchor = TextAnchor.MiddleCenter;
+        label.color = new Color(0.88f, 0.83f, 0.67f);
     }
 
     // 시작 배치
