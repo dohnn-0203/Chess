@@ -164,7 +164,7 @@ public class BoardManager : MonoBehaviour
     // 말 이동
     public void MovePiece(Piece piece, int x, int z)
     {
-        piece.transform.position = GetPiecePos(x, z);
+        piece.transform.position = GetPiecePos(x, z) + piece.VisualOffset;
         piece.SetPos(x, z);
         pieces[x, z] = piece;
     }
@@ -228,6 +228,7 @@ public class BoardManager : MonoBehaviour
 
         Piece piece = AddPieceScript(obj, type);
         piece.Init(team, type, x, z);
+        FitPieceToSquare(piece);
         SetPieceColor(obj, team);
         if (obj.GetComponentInChildren<Collider>() == null)
         {
@@ -247,7 +248,24 @@ public class BoardManager : MonoBehaviour
         return piece;
     }
 
-
+    // 원본 모델의 모양을 유지하면서 각 칸 안에 맞춰 배치
+    private void FitPieceToSquare(Piece piece)
+    {
+        Renderer[] renderers = piece.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) return;
+        Bounds bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+        float width = Mathf.Max(bounds.size.x, bounds.size.z);
+        float height = piece.Type == PieceType.Pawn ? 0.8f : 1.25f;
+        float factor = Mathf.Min(0.74f * tileSize / Mathf.Max(width, 0.001f), height * tileSize / Mathf.Max(bounds.size.y, 0.001f));
+        piece.transform.localScale *= factor;
+        bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+        Vector3 origin = GetPiecePos(piece.X, piece.Z);
+        Vector3 offset = new Vector3(origin.x - bounds.center.x, tileHeight * 0.5f + pieceY + 0.02f - bounds.min.y, origin.z - bounds.center.z);
+        piece.VisualOffset = offset;
+        piece.transform.position += offset;
+    }
 
     // 보드 생성
     private void CreateBoard()

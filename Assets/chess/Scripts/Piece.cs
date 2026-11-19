@@ -25,6 +25,7 @@ public class Piece : MonoBehaviour
     public int X { get; private set; }
     public int Z { get; private set; }
     public bool HasMoved { get; private set; }
+    public Vector3 VisualOffset { get; set; }
 
     // 말 초기화
     public virtual void Init(Team team, PieceType type, int x, int z)
