@@ -79,6 +79,10 @@ public class ChessRules
             ? board.GetPiece(move.enPassantPos.x, move.enPassantPos.y)
             : board.GetPiece(move.to.x, move.to.y);
 
+        state.halfmoveClock = piece.Type == PieceType.Pawn || target != null
+            ? 0
+            : state.halfmoveClock + 1;
+
         if (target != null && target.Team != piece.Team)
         {
             board.RemovePiece(target);

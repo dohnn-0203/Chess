@@ -5,6 +5,7 @@ public class ChessState
 {
     public Team turn = Team.White;
     public bool gameOver;
+    public int halfmoveClock;
     public bool canEnPassant;
     public Vector2Int enPassantTile;
     public Vector2Int enPassantPawn;
