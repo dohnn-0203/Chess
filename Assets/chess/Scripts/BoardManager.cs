@@ -299,7 +299,7 @@ public class BoardManager : MonoBehaviour
         for (int i = 0; i < size; i++)
         {
             CreateLabel(((char)('a' + i)).ToString(), new Vector3(i * tileSize, 0.12f, -0.8f * tileSize));
-            CreateLabel(((char)('a' + i)).ToString(), new Vector3(i * tileSize, 0.12f, 7.8f * tileSize));
+            CreateLabel(((char)('a' + i)).ToString(), new Vector3(i * tileSize, 0.12f, 8.8f * tileSize));
             CreateLabel((i + 1).ToString(), new Vector3(-0.8f * tileSize, 0.12f, i * tileSize));
             CreateLabel((i + 1).ToString(), new Vector3(7.8f * tileSize, 0.12f, i * tileSize));
         }
