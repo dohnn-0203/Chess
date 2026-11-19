@@ -110,10 +110,15 @@ public class ChessSmokeTest : MonoBehaviour
         Check(Camera.main != null && Mathf.Abs(Camera.main.rect.width - ChessUI.BoardViewportWidth) < 0.001f, "Board camera reserves the HUD viewport");
 
         Screen.SetResolution(1280, 720, FullScreenMode.Windowed);
+        while (!UnityEngine.Rendering.SplashScreen.isFinished) yield return null;
         for (int i = 0; i < 12; i++) yield return null;
         Canvas.ForceUpdateCanvases();
         Check(Screen.width == 1280 && Screen.height == 720, "Window renders at 1280x720");
         CheckButtonLabels("1280x720 initial HUD");
+        Physics.SyncTransforms();
+        CheckPieceRaycast("a1");
+        CheckPieceRaycast("e2");
+        yield return null;
         yield return new WaitForEndOfFrame();
         Capture("initial-1280.png");
 
@@ -283,11 +288,39 @@ public class ChessSmokeTest : MonoBehaviour
         Texture2D screenshot = ScreenCapture.CaptureScreenshotAsTexture();
         Check(screenshot != null && screenshot.width == Screen.width && screenshot.height == Screen.height, "Capture has expected dimensions: " + filename);
         File.WriteAllBytes(Path.Combine(outputDirectory, filename), screenshot.EncodeToPNG());
-        Destroy(screenshot);
         report.screenshots.Add(filename);
+        Color32[] pixels = screenshot.GetPixels32();
+        int darkest = 765;
+        int brightest = 0;
+        int brightSamples = 0;
+        int stepX = Mathf.Max(1, screenshot.width / 64);
+        int stepY = Mathf.Max(1, screenshot.height / 40);
+        for (int y = stepY / 2; y < screenshot.height; y += stepY)
+            for (int x = stepX / 2; x < screenshot.width; x += stepX)
+            {
+                Color32 pixel = pixels[y * screenshot.width + x];
+                int light = pixel.r + pixel.g + pixel.b;
+                darkest = Mathf.Min(darkest, light);
+                brightest = Mathf.Max(brightest, light);
+                if (light > 210) brightSamples++;
+            }
+        Destroy(screenshot);
+        Check(brightest - darkest > 90 && brightSamples > 16, "Capture contains visible rendered content: " + filename);
     }
 
-
+    private void CheckPieceRaycast(string square)
+    {
+        Piece piece = At(square);
+        Renderer[] renderers = piece.GetComponentsInChildren<Renderer>();
+        Check(renderers.Length > 0, "Piece has visible geometry: " + square);
+        Bounds bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+        Vector3 screenPoint = Camera.main.WorldToScreenPoint(bounds.center);
+        Check(screenPoint.z > 0f && Camera.main.pixelRect.Contains(screenPoint), "Piece center is visible in board viewport: " + square);
+        RaycastHit hit;
+        bool hitPiece = Physics.Raycast(Camera.main.ScreenPointToRay(screenPoint), out hit, 1000f);
+        Check(hitPiece && hit.collider.GetComponentInParent<Piece>() == piece, "Pointer ray resolves the intended piece: " + square);
+    }
 
     private static T PrivateField<T>(object instance, string name)
     {
