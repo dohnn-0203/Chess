@@ -25,26 +25,22 @@ public class ChessPromotion
 
         if (Input.GetKeyDown(KeyCode.Q))
         {
-            Promote(PieceType.Queen);
-            return true;
+            return Promote(PieceType.Queen);
         }
 
         if (Input.GetKeyDown(KeyCode.R))
         {
-            Promote(PieceType.Rook);
-            return true;
+            return Promote(PieceType.Rook);
         }
 
         if (Input.GetKeyDown(KeyCode.B))
         {
-            Promote(PieceType.Bishop);
-            return true;
+            return Promote(PieceType.Bishop);
         }
 
         if (Input.GetKeyDown(KeyCode.N))
         {
-            Promote(PieceType.Knight);
-            return true;
+            return Promote(PieceType.Knight);
         }
 
         return false;
@@ -70,35 +66,31 @@ public class ChessPromotion
     }
 
     // 승급 완료
-    private void Promote(PieceType type)
+    public bool Promote(PieceType type)
     {
-        if (state.promotionPawn == null)
+        if (!state.waitPromotion || state.promotionPawn == null || state.gameOver)
         {
-            state.waitPromotion = false;
-            return;
+            return false;
         }
+        if (type != PieceType.Queen && type != PieceType.Rook && type != PieceType.Bishop && type != PieceType.Knight) return false;
 
         int x = state.promotionPawn.X;
         int z = state.promotionPawn.Z;
         Team team = state.promotionPawn.Team;
 
-        board.RemovePiece(state.promotionPawn);
-
         Piece newPiece = board.SpawnPiece(type, team, x, z);
         if (newPiece == null)
         {
-            newPiece = board.SpawnPiece(PieceType.Queen, team, x, z);
-            type = PieceType.Queen;
+            log?.Invoke("Promotion piece is unavailable. Choose another piece.");
+            return false;
         }
-
-        if (newPiece != null)
-        {
-            newPiece.SetState(x, z, true);
-        }
+        board.RemovePiece(state.promotionPawn);
+        newPiece.SetState(x, z, true);
 
         state.waitPromotion = false;
         state.promotionPawn = null;
 
         log?.Invoke($"{team} promoted to {type}");
+        return true;
     }
 }

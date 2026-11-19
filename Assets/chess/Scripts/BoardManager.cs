@@ -174,7 +174,8 @@ public class BoardManager : MonoBehaviour
 
         if (pieces[piece.X, piece.Z] == piece) pieces[piece.X, piece.Z] = null;
         piece.gameObject.SetActive(false);
-        Destroy(piece.gameObject);
+        if (Application.isPlaying) Destroy(piece.gameObject);
+        else DestroyImmediate(piece.gameObject);
     }
 
     // 선택 칸 표시
