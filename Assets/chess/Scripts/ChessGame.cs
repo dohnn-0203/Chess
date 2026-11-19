@@ -57,6 +57,9 @@ public class ChessGame : MonoBehaviour
 
     public void Init(BoardManager boardManager)
     {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        WebGLInput.captureAllKeyboardInput = false;
+#endif
         board = boardManager;
         if (logText != null) logText.gameObject.SetActive(false);
         ui = GetComponent<ChessUI>();
