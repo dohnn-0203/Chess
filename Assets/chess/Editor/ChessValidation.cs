@@ -542,9 +542,11 @@ public static class ChessValidation
         {
             List<BoardManager> managers = new List<BoardManager>();
             List<GameObject> legacyLogs = new List<GameObject>();
+            List<Camera> cameras = new List<Camera>();
             foreach (GameObject rootObject in chessScene.GetRootGameObjects())
             {
                 managers.AddRange(rootObject.GetComponentsInChildren<BoardManager>(true));
+                cameras.AddRange(rootObject.GetComponentsInChildren<Camera>(true));
                 foreach (Transform child in rootObject.GetComponentsInChildren<Transform>(true))
                     if (child.name == "LogText") legacyLogs.Add(child.gameObject);
             }
@@ -563,7 +565,14 @@ public static class ChessValidation
             }
 
             Equal(1, legacyLogs.Count, "scene must have exactly one original LogText object");
-            True(!legacyLogs[0].activeSelf, "original LogText must be inactive so the replacement UI owns the display");
+            True(legacyLogs[0].activeInHierarchy, "original LogText must be active in the restored scene");
+            True(game.logText != null && game.logText.gameObject == legacyLogs[0], "ChessGame must display logs through the original LogText");
+            True(game.logText.font != null, "original LogText must have its assigned font asset");
+            Camera mainCamera = cameras.Find(camera => camera.CompareTag("MainCamera"));
+            True(mainCamera != null && mainCamera.enabled, "scene must have an active main camera");
+            True(!mainCamera.orthographic && mainCamera.clearFlags == CameraClearFlags.Skybox,
+                "scene must preserve its original perspective camera and skybox");
+            True(mainCamera.rect == new Rect(0f, 0f, 1f, 1f), "original camera must use the full viewport");
             if (openedForValidation) True(!chessScene.isDirty, "scene inspection must not modify the asset");
         }
         finally

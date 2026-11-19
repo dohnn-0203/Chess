@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using TMPro;
 using UnityEngine;
@@ -20,6 +21,7 @@ public class ChessGame : MonoBehaviour
     private readonly List<string> history = new List<string>();
     private readonly List<PieceType> whiteCaptured = new List<PieceType>();
     private readonly List<PieceType> blackCaptured = new List<PieceType>();
+    private readonly string[] logLines = new string[3];
     private string result = string.Empty;
     private string pendingMove;
     private Vector2Int lastFrom;
@@ -27,6 +29,9 @@ public class ChessGame : MonoBehaviour
     private bool hasLastMove;
     private bool inCheck;
     private bool flipped;
+    private bool cameraPoseSaved;
+    private Vector3 originalCameraPosition;
+    private Quaternion originalCameraRotation;
     private int screenWidth;
     private int screenHeight;
 
@@ -39,6 +44,8 @@ public class ChessGame : MonoBehaviour
     public string StatusText => IsGameOver ? result : IsPromotionPending ? Turn + " - choose promotion" : Turn + " to move" + (inCheck ? " - CHECK" : "");
     public string WhiteCapturedText => CapturedText(whiteCaptured);
     public string BlackCapturedText => CapturedText(blackCaptured);
+    public string RecentLogText => MakeLogLine(logLines[0], 0.25f) + "\n"
+        + MakeLogLine(logLines[1], 0.55f) + "\n" + MakeLogLine(logLines[2], 1f);
 
     public string HistoryText
     {
@@ -61,7 +68,11 @@ public class ChessGame : MonoBehaviour
         WebGLInput.captureAllKeyboardInput = false;
 #endif
         board = boardManager;
-        if (logText != null) logText.gameObject.SetActive(false);
+        if (logText != null)
+        {
+            logText.gameObject.SetActive(true);
+            logText.raycastTarget = false;
+        }
         ui = GetComponent<ChessUI>();
         if (ui == null) ui = gameObject.AddComponent<ChessUI>();
         ResetState();
@@ -145,6 +156,8 @@ public class ChessGame : MonoBehaviour
         history.Add(pendingMove);
         pendingMove = null;
         draws.RecordPosition();
+        AddLog("Turn: " + Turn);
+        if (inCheck && hasMove) AddLog(Turn + " is in check");
         if (!hasMove) Finish(inCheck ? "Checkmate - " + Other(Turn) + " wins" : "Draw by stalemate");
         else if (draws.AutomaticDrawReason.Length > 0) Finish(draws.AutomaticDrawReason);
         RepaintBoard();
@@ -165,7 +178,7 @@ public class ChessGame : MonoBehaviour
     {
         state = new ChessState();
         rules = new ChessRules(board, state);
-        promotion = new ChessPromotion(board, state, Debug.Log);
+        promotion = new ChessPromotion(board, state, AddLog);
         draws = new ChessDrawRules(board, state, rules);
         draws.RecordPosition();
         history.Clear();
@@ -175,6 +188,8 @@ public class ChessGame : MonoBehaviour
         pendingMove = null;
         hasLastMove = false;
         inCheck = false;
+        System.Array.Clear(logLines, 0, logLines.Length);
+        AddLog("Turn: " + Turn);
     }
 
     public void Resign()
@@ -196,7 +211,7 @@ public class ChessGame : MonoBehaviour
         state.gameOver = true;
         result = text;
         ClearSelect();
-        Debug.Log(text);
+        AddLog(text);
     }
 
     private void ClearSelect()
@@ -223,19 +238,50 @@ public class ChessGame : MonoBehaviour
 
     private void ConfigureCamera()
     {
-        screenWidth = Screen.width;
-        screenHeight = Screen.height;
         Camera camera = Camera.main;
         if (camera == null) return;
-        camera.rect = new Rect(0f, 0f, ChessUI.BoardViewportWidth, 1f);
-        camera.clearFlags = CameraClearFlags.SolidColor;
-        camera.backgroundColor = new Color(0.055f, 0.075f, 0.10f);
-        camera.orthographic = true;
-        float tile = board.TileSize;
-        camera.orthographicSize = Mathf.Max(5.4f, 4.9f / Mathf.Max(0.3f, camera.aspect)) * tile;
-        Vector3 center = new Vector3(3.5f * tile, 0.25f, 3.5f * tile);
-        camera.transform.position = center + new Vector3(0f, 11f, flipped ? 8f : -8f) * tile;
-        camera.transform.LookAt(center);
+        screenWidth = Screen.width;
+        screenHeight = Screen.height;
+        if (!cameraPoseSaved)
+        {
+            originalCameraPosition = camera.transform.position;
+            originalCameraRotation = camera.transform.rotation;
+            cameraPoseSaved = true;
+        }
+        Vector3 center = new Vector3(3.5f * board.TileSize, 0f, 3.5f * board.TileSize);
+        // 원본 원근과 각도를 유지하며 작은 임베드 화면에서도 모든 기물을 보이게 한다.
+        float tangent = Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad) * 0.90f;
+        float distance = 0f;
+        Quaternion inverse = Quaternion.Inverse(originalCameraRotation);
+        for (int x = 0; x < 2; x++)
+            for (int y = 0; y < 2; y++)
+                for (int z = 0; z < 2; z++)
+                {
+                    Vector3 corner = new Vector3(x == 0 ? -0.6f : 7.6f, y == 0 ? 0f : 1.5f, z == 0 ? -0.6f : 7.6f) * board.TileSize;
+                    Vector3 local = inverse * (corner - originalCameraPosition);
+                    distance = Mathf.Max(distance, Mathf.Abs(local.y) / tangent - local.z,
+                        Mathf.Abs(local.x) / (tangent * Mathf.Max(0.3f, camera.aspect)) - local.z);
+                }
+        Vector3 position = originalCameraPosition - originalCameraRotation * Vector3.forward * distance;
+        Quaternion rotation = flipped ? Quaternion.Euler(0f, 180f, 0f) : Quaternion.identity;
+        camera.transform.position = center + rotation * (position - center);
+        camera.transform.rotation = rotation * originalCameraRotation;
+    }
+
+    private void AddLog(string text)
+    {
+        logLines[0] = logLines[1];
+        logLines[1] = logLines[2];
+        logLines[2] = text;
+        if (logText != null) logText.text = RecentLogText;
+        Debug.Log(text);
+    }
+
+    private static string MakeLogLine(string text, float alpha)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+        string hex = Mathf.RoundToInt(alpha * 255f).ToString("X2", CultureInfo.InvariantCulture);
+        return "<alpha=#" + hex + ">" + text;
     }
 
     private static string CapturedText(List<PieceType> captured)

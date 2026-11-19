@@ -3,16 +3,16 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-// 장면 설정 없이 생성되는 대국 화면
+// 원본 로그 화면을 유지하고 추가 조작은 메뉴에서 제공한다.
 public class ChessUI : MonoBehaviour
 {
-    public const float BoardViewportWidth = 0.68f;
+    public const float BoardViewportWidth = 1f;
 
-    private static readonly Color PanelColor = new Color(0.055f, 0.075f, 0.105f);
-    private static readonly Color CardColor = new Color(0.10f, 0.13f, 0.17f);
-    private static readonly Color InkColor = new Color(0.94f, 0.92f, 0.86f);
-    private static readonly Color MutedColor = new Color(0.61f, 0.67f, 0.73f);
-    private static readonly Color AccentColor = new Color(0.84f, 0.69f, 0.42f);
+    private static readonly Color PanelColor = new Color(0.18f, 0.18f, 0.18f);
+    private static readonly Color CardColor = new Color(0.32f, 0.32f, 0.32f);
+    private static readonly Color InkColor = Color.white;
+    private static readonly Color MutedColor = new Color(0.80f, 0.80f, 0.80f);
+    private static readonly Color AccentColor = new Color(0.85f, 0.85f, 0.85f);
 
     private ChessGame game;
     private Font font;
@@ -31,9 +31,12 @@ public class ChessUI : MonoBehaviour
     private GameObject resultPanel;
     private GameObject confirmationPanel;
     private Action confirmationAction;
+    private GameObject menuPanel;
+    private Button menuButton;
+    private bool menuOpen;
     private string previousHistory = "\0";
 
-    public bool IsBlockingInput => confirmationPanel != null && confirmationPanel.activeSelf;
+    public bool IsBlockingInput => menuOpen || (confirmationPanel != null && confirmationPanel.activeSelf);
 
     public void Init(ChessGame chessGame)
     {
@@ -42,13 +45,15 @@ public class ChessUI : MonoBehaviour
         {
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             CreateCanvas();
-            CreateSidebar();
+            CreateMenu();
             CreatePromotionPanel();
             CreateResultPanel();
             CreateConfirmationPanel();
+            CreateMenuButton();
         }
 
         CloseConfirmation();
+        CloseMenu();
         Refresh();
     }
 
@@ -56,6 +61,14 @@ public class ChessUI : MonoBehaviour
     {
         if (game == null || canvasRoot == null) return;
 
+        if (game.logText != null)
+        {
+            game.logText.text = game.RecentLogText;
+            game.logText.raycastTarget = false;
+        }
+        menuPanel.SetActive(menuOpen);
+        menuButton.GetComponentInChildren<Text>().text = menuOpen ? "Close" : "Menu";
+        menuButton.interactable = confirmationPanel == null || !confirmationPanel.activeSelf;
         turnText.text = game.IsGameOver ? "GAME FINISHED" : game.Turn == Team.White ? "WHITE TO MOVE" : "BLACK TO MOVE";
         turnText.color = game.IsGameOver ? AccentColor : InkColor;
         statusText.text = game.StatusText;
@@ -63,8 +76,8 @@ public class ChessUI : MonoBehaviour
         blackCapturedText.text = "Black captured: " + CapturedOrDash(game.BlackCapturedText);
         resignButton.interactable = !game.IsGameOver && !game.IsPromotionPending;
         claimButton.gameObject.SetActive(game.CanClaimDraw && !game.IsGameOver && !game.IsPromotionPending);
-        promotionPanel.SetActive(game.IsPromotionPending && !game.IsGameOver);
-        resultPanel.SetActive(game.IsGameOver);
+        promotionPanel.SetActive(game.IsPromotionPending && !game.IsGameOver && !menuOpen);
+        resultPanel.SetActive(game.IsGameOver && !menuOpen);
         resultText.text = game.StatusText;
 
         if (previousHistory != game.HistoryText)
@@ -79,7 +92,9 @@ public class ChessUI : MonoBehaviour
 
     private void Update()
     {
-        if (IsBlockingInput && Input.GetKeyDown(KeyCode.Escape)) CloseConfirmation();
+        if (!Input.GetKeyDown(KeyCode.Escape)) return;
+        if (confirmationPanel != null && confirmationPanel.activeSelf) CloseConfirmation();
+        else CloseMenu();
     }
 
     private void CreateCanvas()
@@ -101,59 +116,59 @@ public class ChessUI : MonoBehaviour
             events.transform.SetParent(transform, false);
         }
 
-        Text boardLabel = Label("Board label", canvasRoot, "LOCAL CHESS", 14, AccentColor, TextAnchor.UpperLeft);
-        Place(boardLabel.rectTransform, new Vector2(0f, 1f), new Vector2(BoardViewportWidth, 1f), new Vector2(24f, -40f), new Vector2(-24f, -18f));
-        Text boardHint = Label("Board hint", canvasRoot, "Select a piece, then choose a highlighted square.", 14, MutedColor, TextAnchor.LowerCenter);
-        Place(boardHint.rectTransform, Vector2.zero, new Vector2(BoardViewportWidth, 0f), new Vector2(16f, 18f), new Vector2(-16f, 56f));
     }
 
-    private void CreateSidebar()
+    private void CreateMenuButton()
     {
-        RectTransform panel = Box("Sidebar", canvasRoot, PanelColor);
-        Place(panel, new Vector2(BoardViewportWidth, 0f), Vector2.one, Vector2.zero, Vector2.zero);
+        menuButton = MakeButton("Menu", canvasRoot, "Menu", ToggleMenu, false);
+        Place(menuButton.GetComponent<RectTransform>(), Vector2.one, Vector2.one,
+            new Vector2(-112f, -52f), new Vector2(-16f, -16f));
+    }
 
-        RectTransform line = Box("Accent line", panel, AccentColor);
-        Place(line, new Vector2(0f, 1f), Vector2.one, new Vector2(24f, -7f), new Vector2(-24f, -4f));
+    private void ToggleMenu()
+    {
+        if (confirmationPanel != null && confirmationPanel.activeSelf) return;
+        menuOpen = !menuOpen;
+        Refresh();
+    }
 
-        Text title = Label("Title", panel, "CHESS", 32, InkColor, TextAnchor.UpperLeft);
-        Top(title.rectTransform, 22f, 42f);
-        Text subtitle = Label("Subtitle", panel, "TWO PLAYERS / ONE BOARD", 11, MutedColor, TextAnchor.UpperLeft);
-        Top(subtitle.rectTransform, 65f, 22f);
+    private void CloseMenu()
+    {
+        menuOpen = false;
+        if (menuPanel != null) menuPanel.SetActive(false);
+        if (menuButton != null) Refresh();
+    }
 
-        RectTransform statusCard = Box("Status card", panel, CardColor);
-        Top(statusCard, 103f, 101f);
-        turnText = Label("Turn", statusCard, "WHITE TO MOVE", 18, InkColor, TextAnchor.UpperLeft);
-        Place(turnText.rectTransform, new Vector2(0f, 1f), Vector2.one, new Vector2(15f, -39f), new Vector2(-15f, -15f));
-        statusText = Label("Status", statusCard, string.Empty, 15, MutedColor, TextAnchor.UpperLeft);
-        Place(statusText.rectTransform, Vector2.zero, Vector2.one, new Vector2(15f, 9f), new Vector2(-15f, -47f));
-
-        whiteCapturedText = Label("White captures", panel, string.Empty, 13, MutedColor, TextAnchor.UpperLeft);
-        Top(whiteCapturedText.rectTransform, 216f, 30f);
-        blackCapturedText = Label("Black captures", panel, string.Empty, 13, MutedColor, TextAnchor.UpperLeft);
-        Top(blackCapturedText.rectTransform, 250f, 30f);
-
-        Text historyHeading = Label("History heading", panel, "MOVE HISTORY", 12, AccentColor, TextAnchor.UpperLeft);
-        Top(historyHeading.rectTransform, 287f, 24f);
+    private void CreateMenu()
+    {
+        RectTransform overlay = Overlay("Game menu", out RectTransform panel, 600f, 620f);
+        menuPanel = overlay.gameObject;
+        turnText = Label("Turn", panel, string.Empty, 22, InkColor, TextAnchor.UpperLeft);
+        Top(turnText.rectTransform, 24f, 32f);
+        statusText = Label("Status", panel, string.Empty, 16, MutedColor, TextAnchor.UpperLeft);
+        Top(statusText.rectTransform, 60f, 26f);
+        whiteCapturedText = Label("White captures", panel, string.Empty, 16, InkColor, TextAnchor.UpperLeft);
+        Top(whiteCapturedText.rectTransform, 100f, 26f);
+        blackCapturedText = Label("Black captures", panel, string.Empty, 16, InkColor, TextAnchor.UpperLeft);
+        Top(blackCapturedText.rectTransform, 132f, 26f);
+        Text historyHeading = Label("History heading", panel, "Move history", 18, InkColor, TextAnchor.UpperLeft);
+        Top(historyHeading.rectTransform, 176f, 26f);
         CreateHistory(panel);
 
-        claimButton = MakeButton("Claim draw", panel, "Claim draw", game.ClaimDraw, true);
-        Place(claimButton.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0f), new Vector2(24f, 163f), new Vector2(-24f, 199f));
-
-        Button newGameButton = MakeButton("New game", panel, "New game", RequestNewGame, true);
-        Place(newGameButton.GetComponent<RectTransform>(), Vector2.zero, new Vector2(0.5f, 0f), new Vector2(24f, 104f), new Vector2(-5f, 148f));
+        claimButton = MakeButton("Claim draw", panel, "Claim draw", () => { CloseMenu(); game.ClaimDraw(); }, false);
+        Place(claimButton.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0f), new Vector2(24f, 142f), new Vector2(-24f, 178f));
+        Button newGameButton = MakeButton("New game", panel, "New game", RequestNewGame, false);
+        Place(newGameButton.GetComponent<RectTransform>(), Vector2.zero, new Vector2(0.5f, 0f), new Vector2(24f, 88f), new Vector2(-6f, 128f));
         resignButton = MakeButton("Resign", panel, "Resign", RequestResign, false);
-        Place(resignButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(1f, 0f), new Vector2(5f, 104f), new Vector2(-24f, 148f));
-
-        Button flipButton = MakeButton("Flip board", panel, "Flip board", game.FlipBoard, false);
-        Place(flipButton.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0f), new Vector2(24f, 52f), new Vector2(-24f, 92f));
-        Text footer = Label("Footer", panel, "Legal moves are highlighted in green.", 11, MutedColor, TextAnchor.MiddleCenter);
-        Place(footer.rectTransform, Vector2.zero, new Vector2(1f, 0f), new Vector2(20f, 13f), new Vector2(-20f, 38f));
+        Place(resignButton.GetComponent<RectTransform>(), new Vector2(0.5f, 0f), new Vector2(1f, 0f), new Vector2(6f, 88f), new Vector2(-24f, 128f));
+        Button flipButton = MakeButton("Flip board", panel, "Flip board", () => { CloseMenu(); game.FlipBoard(); }, false);
+        Place(flipButton.GetComponent<RectTransform>(), Vector2.zero, new Vector2(1f, 0f), new Vector2(24f, 32f), new Vector2(-24f, 72f));
     }
 
     private void CreateHistory(RectTransform panel)
     {
-        RectTransform scrollRoot = Box("Move history", panel, new Color(0.035f, 0.05f, 0.075f));
-        Place(scrollRoot, Vector2.zero, Vector2.one, new Vector2(24f, 216f), new Vector2(-24f, -317f));
+        RectTransform scrollRoot = Box("Move history", panel, new Color(0.12f, 0.12f, 0.12f));
+        Place(scrollRoot, Vector2.zero, Vector2.one, new Vector2(24f, 192f), new Vector2(-24f, -210f));
         historyScroll = scrollRoot.gameObject.AddComponent<ScrollRect>();
         historyScroll.horizontal = false;
         historyScroll.vertical = true;
@@ -237,6 +252,7 @@ public class ChessUI : MonoBehaviour
 
     private void RequestNewGame()
     {
+        CloseMenu();
         if (!game.HasMoves || game.IsGameOver)
         {
             game.RestartGame();
@@ -248,6 +264,7 @@ public class ChessUI : MonoBehaviour
 
     private void RequestResign()
     {
+        CloseMenu();
         ShowConfirmation(game.Turn + " resigns?\nThe other player will win.", game.Resign);
     }
 
@@ -257,12 +274,14 @@ public class ChessUI : MonoBehaviour
         confirmationAction = action;
         confirmationPanel.SetActive(true);
         confirmationPanel.transform.SetAsLastSibling();
+        if (menuButton != null) menuButton.interactable = false;
     }
 
     private void CloseConfirmation()
     {
         if (confirmationPanel != null) confirmationPanel.SetActive(false);
         confirmationAction = null;
+        if (menuButton != null) menuButton.interactable = true;
     }
 
     private void ConfirmAction()
@@ -274,14 +293,12 @@ public class ChessUI : MonoBehaviour
 
     private RectTransform Overlay(string name, out RectTransform card, float width, float height)
     {
-        RectTransform overlay = Box(name + " overlay", canvasRoot, new Color(0.015f, 0.025f, 0.04f, 0.58f));
+        RectTransform overlay = Box(name + " overlay", canvasRoot, new Color(0f, 0f, 0f, 0.40f));
         Place(overlay, Vector2.zero, new Vector2(BoardViewportWidth, 1f), Vector2.zero, Vector2.zero);
         card = Box(name + " card", overlay, PanelColor);
         card.anchorMin = card.anchorMax = new Vector2(0.5f, 0.5f);
         card.sizeDelta = new Vector2(width, height);
         card.anchoredPosition = Vector2.zero;
-        RectTransform accent = Box(name + " accent", card, AccentColor);
-        Place(accent, new Vector2(0f, 1f), Vector2.one, new Vector2(0f, -3f), Vector2.zero);
         overlay.gameObject.SetActive(false);
         return overlay;
     }

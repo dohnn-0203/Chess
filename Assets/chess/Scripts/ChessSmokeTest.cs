@@ -14,6 +14,7 @@ public class ChessSmokeTest : MonoBehaviour
     private class Report
     {
         public bool passed;
+        public bool screenshotsSkipped;
         public string unityVersion;
         public string startedUtc;
         public string finishedUtc;
@@ -55,6 +56,7 @@ public class ChessSmokeTest : MonoBehaviour
     {
         Directory.CreateDirectory(outputDirectory);
         report.unityVersion = Application.unityVersion;
+        report.screenshotsSkipped = Array.IndexOf(Environment.GetCommandLineArgs(), "-chessSkipScreenshots") >= 0;
         report.startedUtc = DateTime.UtcNow.ToString("O");
         startedAt = Time.realtimeSinceStartup;
         Application.logMessageReceived += RecordLog;
@@ -104,10 +106,21 @@ public class ChessSmokeTest : MonoBehaviour
         Check(game != null && PrivateField<ChessState>(game, "state") != null, "Scene initializes ChessGame");
         board = game.GetComponent<BoardManager>();
         ui = game.GetComponent<ChessUI>();
-        Check(board != null && ui != null && ui.GetComponentInChildren<Canvas>() != null, "Board and runtime HUD exist");
+        Check(board != null && ui != null && ui.GetComponentInChildren<Canvas>() != null, "Board and optional game controls exist");
+        Check(game.logText != null && game.logText.gameObject.activeInHierarchy, "Original scene LogText is visible");
+        Check(game.logText.font != null, "Original scene LogText has its font asset");
+        bool hasSidebar = false;
+        foreach (Transform child in ui.GetComponentsInChildren<Transform>(true))
+            if (child.name == "Sidebar") hasSidebar = true;
+        Check(!hasSidebar, "Original design does not create a permanent sidebar");
         Check(FindObjectsOfType<Tile>().Length == 64, "Scene contains exactly 64 board tiles");
         CheckFreshGame("Initial game");
-        Check(Camera.main != null && Mathf.Abs(Camera.main.rect.width - ChessUI.BoardViewportWidth) < 0.001f, "Board camera reserves the HUD viewport");
+        Check(Camera.main != null && Camera.main.rect == new Rect(0f, 0f, 1f, 1f), "Board camera uses the original full viewport");
+        Check(!Camera.main.orthographic && Camera.main.clearFlags == CameraClearFlags.Skybox, "Board preserves the original perspective and skybox");
+        Check(FindButton("Menu") != null && FindButton("New game") == null && !ui.IsBlockingInput,
+            "Optional menu starts closed with only its toggle available");
+        CheckRecentLog("Initial game");
+        Check(game.logText.text.Contains("White"), "Original log shows the initial player");
 
         Screen.SetResolution(1280, 720, FullScreenMode.Windowed);
         while (!UnityEngine.Rendering.SplashScreen.isFinished) yield return null;
@@ -117,6 +130,9 @@ public class ChessSmokeTest : MonoBehaviour
         CheckButtonLabels("1280x720 initial HUD");
         Physics.SyncTransforms();
         CheckPieceRaycast("a1");
+        CheckPieceRaycast("h1");
+        CheckPieceRaycast("a8");
+        CheckPieceRaycast("h8");
         CheckPieceRaycast("e2");
         yield return null;
         yield return new WaitForEndOfFrame();
@@ -128,6 +144,8 @@ public class ChessSmokeTest : MonoBehaviour
         Move("d8", "h4");
         Check(game.IsGameOver && game.StatusText.Contains("Checkmate") && game.StatusText.Contains("Black wins"), "Fool's mate ends with Black winning");
         Check(HistoryCount() == 4 && game.HistoryText.Contains("Qd8-h4#"), "Checkmate records all four plies and mate notation");
+        CheckRecentLog("Checkmate");
+        Check(game.logText.text.Contains(game.StatusText), "Original log shows the completed game result");
         Piece unmovedPawn = At("a2");
         game.ClickTile(TileAt("a2"));
         game.ClickTile(TileAt("a3"));
@@ -168,10 +186,18 @@ public class ChessSmokeTest : MonoBehaviour
         Check(game.WhiteCapturedText == "P" && game.BlackCapturedText == "None", "Capture updates the correct captured-piece list");
         Check(HistoryCount() == 3 && game.HistoryText.Contains("e4xd5"), "Capture is recorded in the move history");
         Vector3 firstCameraPosition = Camera.main.transform.position;
+        Quaternion firstCameraRotation = Camera.main.transform.rotation;
+        Vector3 boardCenter = new Vector3(3.5f * board.TileSize, 0f, 3.5f * board.TileSize);
+        Vector3 flippedPosition = boardCenter + Quaternion.Euler(0f, 180f, 0f) * (firstCameraPosition - boardCenter);
         ClickButton("Flip board");
-        Check(Vector3.Distance(firstCameraPosition, Camera.main.transform.position) > board.TileSize * 10f, "Flip board changes the camera side");
+        Check(Vector3.Distance(flippedPosition, Camera.main.transform.position) < 0.01f
+            && Mathf.Abs(Quaternion.Angle(firstCameraRotation, Camera.main.transform.rotation) - 180f) < 0.01f,
+            "Flip board mirrors the original camera pose around the board center");
+        Check(!ui.IsBlockingInput && game.CanInteract, "Flip board closes the optional menu and restores board input");
         ClickButton("Flip board");
-        Check(Vector3.Distance(firstCameraPosition, Camera.main.transform.position) < 0.01f, "Second flip restores the camera side");
+        Check(Vector3.Distance(firstCameraPosition, Camera.main.transform.position) < 0.01f
+            && Quaternion.Angle(firstCameraRotation, Camera.main.transform.rotation) < 0.01f,
+            "Second flip restores the original camera pose");
         game.RestartGame();
         CheckFreshGame("Restart clears a captured game");
 
@@ -262,8 +288,23 @@ public class ChessSmokeTest : MonoBehaviour
     private void ClickButton(string name)
     {
         Button button = FindButton(name);
+        if (button == null && (name == "New game" || name == "Resign" || name == "Flip board" || name == "Claim draw"))
+        {
+            Button menu = FindButton("Menu");
+            Check(menu != null && menu.interactable, "Menu is available for action: " + name);
+            menu.onClick.Invoke();
+            Check(ui.IsBlockingInput && !game.CanInteract, "Open menu prevents board input: " + name);
+            button = FindButton(name);
+        }
         Check(button != null && button.interactable, "Button is available: " + name);
         button.onClick.Invoke();
+    }
+
+    private void CheckRecentLog(string context)
+    {
+        string displayed = game.logText.text;
+        Check(displayed == game.RecentLogText && !string.IsNullOrWhiteSpace(displayed), context + ": original log displays the current game messages");
+        Check(displayed.Split('\n').Length <= 3, context + ": original log keeps at most three lines");
     }
 
     private void CheckButtonLabels(string context)
@@ -280,11 +321,16 @@ public class ChessSmokeTest : MonoBehaviour
                 context + ": label fits " + button.name);
             count++;
         }
-        Check(count >= 3, context + ": visible HUD buttons were inspected");
+        Check(count >= 1, context + ": visible controls were inspected");
     }
 
     private void Capture(string filename)
     {
+        if (report.screenshotsSkipped)
+        {
+            report.checks.Add("Screenshot skipped by explicit headless option; browser visual verification required: " + filename);
+            return;
+        }
         Texture2D screenshot = ScreenCapture.CaptureScreenshotAsTexture();
         Check(screenshot != null && screenshot.width == Screen.width && screenshot.height == Screen.height, "Capture has expected dimensions: " + filename);
         File.WriteAllBytes(Path.Combine(outputDirectory, filename), screenshot.EncodeToPNG());
