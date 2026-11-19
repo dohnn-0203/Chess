@@ -43,6 +43,7 @@ public class BoardManager : MonoBehaviour
     private Piece[,] pieces;
     private MaterialPropertyBlock block;
     private ChessGame game;
+    private readonly List<Transform> coordinateLabels = new List<Transform>();
 
     public int Size => size;
     public float TileSize => tileSize;
@@ -125,7 +126,11 @@ public class BoardManager : MonoBehaviour
             }
     }
 
-
+    public void OrientCoordinates(bool flipped)
+    {
+        foreach (Transform label in coordinateLabels)
+            label.rotation = Quaternion.Euler(90f, flipped ? 180f : 0f, 0f);
+    }
 
     // 타일 클릭
     public void ClickTile(Tile tile)
@@ -288,6 +293,7 @@ public class BoardManager : MonoBehaviour
         obj.transform.SetParent(boardRoot, false);
         obj.transform.position = position;
         obj.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        coordinateLabels.Add(obj.transform);
         TextMesh label = obj.AddComponent<TextMesh>();
         label.text = value;
         label.fontSize = 64;

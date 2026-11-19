@@ -214,6 +214,7 @@ public class ChessGame : MonoBehaviour
     public void FlipBoard()
     {
         flipped = !flipped;
+        board.OrientCoordinates(flipped);
         ConfigureCamera();
     }
 
